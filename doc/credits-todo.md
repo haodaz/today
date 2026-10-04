@@ -29,3 +29,28 @@ nvidia/Nemotron-3_5-Lightning
 nvidia/nemotron-3-super-120b-a12b
 nvidia/Nemotron-3-Ultra-550b-a55b
 ```
+
+### 横评结果：最后选了 MiniMax-M3
+
+Nebius Token Factory 上有 90+ 个模型，Nemotron 只是其中一家
+（它只是 Nebius 那个比赛的硬性要求，而我们投的是 Amazon，不绑模型）。
+
+同一段输入、同一套 prompt：
+
+| 模型 | 耗时 | 判断 |
+|---|---|---|
+| **MiniMaxAI/MiniMax-M3** | **1.2–2.4 秒** | ✅ 「明天打疫苗提前出门 · 今天先想好几点走」——抓住了今天该做的是准备 |
+| `zai-org/GLM-5.3-Flash` | 67 秒 | ✅ 判断最好，forHer 那条写成「不为了买东西，楼下转一圈就行」，自己说出了我们教了两轮的规矩。但太慢 |
+| `openai/gpt-oss-120b` | 4.4 秒 | ❌ 疫苗丢进「今天不做」，且只排两件 |
+| `deepseek-ai/DeepSeek-V4.1-Flash` | 14.9 秒 | ❌ 疫苗丢进「今天不做」 |
+| `moonshotai/Kimi-K3` | 23 秒 | ❌ 同上 |
+| `Qwen/Qwen3.5-397B-A17B` | 33.7 秒 | ⚠️ 保住了疫苗，但备注退化成「明天一早 打疫苗 · 明天」，还把时间写进 label |
+| Nemotron Nano 30B | 32–40 秒 | ❌ 两次都漏了疫苗 |
+| Nemotron Super 120B | 11.9 秒 | ❌ 疫苗丢进「今天不做」 |
+| `gpt-5.6-luna`（原主力） | 5–8 秒 | ✅ 稳 |
+
+**MiniMax-M3 比原主力快四倍，而且花的是 Nebius 的钱。**
+一次调用约 1600 token，$25 够跑一万次以上。
+
+所以：**主力 nebius/MiniMax-M3，兜底 openai/gpt-5.6-luna**，自动切换。
+已实测：故意弄坏 Nebius key → 401 → 自动走 OpenAI → 用户无感。

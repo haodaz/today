@@ -40,11 +40,22 @@ const PROVIDERS = {
   // Bedrock 不走 OpenAI 兼容接口，单独一条路径（server/bedrock.mjs）。
   // 凭证按 AWS 默认链解析，不用 apiKey 字段。
   bedrock: {bedrock: true, model: BEDROCK_DEFAULT},
+  // 主力。实测 1.2–2.4 秒，比 gpt-5.6-luna 快四倍，判断不差。
+  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: 'MiniMaxAI/MiniMax-M3', key: 'NEBIUS_API_KEY'},
   openai: {baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-luna', key: 'OPENAI_API_KEY'},
-  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B', key: 'NEBIUS_API_KEY'},
   dashscope: {baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', key: 'DASHSCOPE_API_KEY'},
 };
-const P = PROVIDERS[process.env.PROVIDER || 'openai'];
+
+/**
+ * 主力 + 兜底。
+ *
+ * 主力挂了（限流、欠费、服务抖动）不该让她对着一个报错的屏幕，
+ * 所以自动切到下一家。供应商无关那层就是为这个存在的——
+ * 实测三家都能跑同一套 prompt，这不是架构美学，是一条真的后路。
+ */
+const CHAIN = (process.env.PROVIDER ? [process.env.PROVIDER] : ['nebius', 'openai'])
+  .filter(n => PROVIDERS[n]);
+const P = PROVIDERS[CHAIN[0]];
 const MODEL = process.env.MODEL || P.model;
 
 const dayKey = (d = new Date()) => d.toLocaleDateString('sv-SE'); // YYYY-MM-DD
@@ -159,20 +170,22 @@ function currentPlan() {
   return {focus: t?.card.items ?? [], later: later?.items ?? []};
 }
 
-/** 调一次模型，拿回 JSON。供应商的差别全收在这里。 */
-async function callJSON(messages) {
-  if (P.bedrock) return converseJSON(messages, {model: MODEL});
+/** 向一家供应商要一次 JSON。 */
+async function callOne(name, messages) {
+  const p = PROVIDERS[name];
+  const model = name === CHAIN[0] ? MODEL : p.model;
+  if (p.bedrock) return converseJSON(messages, {model});
 
-  const apiKey = process.env[P.key];
-  if (!apiKey) throw new Error(`缺少 ${P.key}`);
-  const r = await fetch(`${P.baseUrl}/chat/completions`, {
+  const apiKey = process.env[p.key];
+  if (!apiKey) throw new Error(`缺少 ${p.key}`);
+  const r = await fetch(`${p.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`},
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages,
       // 新一代推理模型只接受默认 temperature
-      ...(/^(gpt-[56]|o[0-9])/.test(MODEL) ? {} : {temperature: 0.4}),
+      ...(/^(gpt-[56]|o[0-9])/.test(model) ? {} : {temperature: 0.4}),
       response_format: {type: 'json_object'},
     }),
   });
@@ -180,6 +193,22 @@ async function callJSON(messages) {
   const raw = (await r.json()).choices?.[0]?.message?.content ?? '';
   const body = raw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? raw;
   return JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1));
+}
+
+/** 调一次模型，拿回 JSON。主力挂了自动切下一家。 */
+async function callJSON(messages) {
+  let last;
+  for (const name of CHAIN) {
+    try {
+      return await callOne(name, messages);
+    } catch (e) {
+      last = e;
+      if (name !== CHAIN[CHAIN.length - 1]) {
+        console.warn(`  ${name} 不行（${String(e.message).slice(0, 80)}），换下一家`);
+      }
+    }
+  }
+  throw last;
 }
 
 /** 今天还没打勾的。 */
@@ -389,10 +418,16 @@ createServer(async (req, res) => {
 }).listen(PORT, '0.0.0.0', () => {
   const m = loadMemory();
   const n = m.people.length + m.rhythms.length + m.carrying.length + m.hers.length + m.notes.length;
-  const who = process.env.PROVIDER || 'openai';
-  console.log(`\nToday 本地服务  ·  ${who} / ${MODEL}`);
-  if (P.bedrock && !process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_PROFILE) {
-    console.log('  ⚠️  没找到 AWS 凭证，Bedrock 调用会失败');
+  console.log(`\nToday 本地服务  ·  ${CHAIN[0]} / ${MODEL}` +
+    (CHAIN.length > 1 ? `  （兜底：${CHAIN.slice(1).join(' → ')}）` : ''));
+  for (const n of CHAIN) {
+    const p = PROVIDERS[n];
+    if (p.bedrock) {
+      if (!process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_PROFILE)
+        console.log(`  ⚠️  ${n}：没找到 AWS 凭证`);
+    } else if (!process.env[p.key]) {
+      console.log(`  ⚠️  ${n}：缺 ${p.key}`);
+    }
   }
   console.log(`  记着 ${n} 条`);
   console.log(`  手机：http://192.168.1.243:${PORT}\n`);
