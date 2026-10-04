@@ -131,7 +131,7 @@ and planned **two** items instead of three.
 | Always on | `expo-keep-awake` |
 | Speech | `MediaRecorder` in the page → Whisper |
 | Agent | provider-agnostic; AWS Bedrock for submission |
-| Character | generated with Tongyi Wanxiang, cut out by [`scripts/cutout.mjs`](Today/scripts/cutout.mjs) |
+| Character | generated with Tongyi Wanxiang, cut out by [**flatcut**](https://github.com/haodaz/flatcut) — extracted from this project and released separately |
 
 ### Two decisions made for a television
 
@@ -171,6 +171,13 @@ PROVIDER=openai node Today/scripts/plan.mjs "whatever you want to try"
 The bench prints the plan laid out as the TV would show it, and flags the three
 things that matter: more than three items, **nothing that belongs to her**, and
 labels too long for one line.
+
+## Released alongside this
+
+[**flatcut**](https://github.com/haodaz/flatcut) — cutting the background out of
+a generated flat illustration without eating the light areas inside the subject.
+Written for this project's tiger, then pulled out as its own MIT package, because
+all three of the ways it can go wrong are things you only learn by hitting them.
 
 ## Licence
 

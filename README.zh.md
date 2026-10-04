@@ -80,6 +80,12 @@ source ./env.sh
 PROVIDER=openai node scripts/plan.mjs "你想试的一段话"
 ```
 
+## 一起开源的
+
+[**flatcut**](https://github.com/haodaz/flatcut) —— 给 AI 生成的扁平插画去底，
+而不会把主体内部的浅色区一起吃掉。为这个项目的老虎写的，然后抽成独立的
+MIT 包——因为它会坏掉的三种方式，都是踩过才知道的。
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
