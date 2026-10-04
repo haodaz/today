@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Hearth",
+    "slug": "hearth",
+    "version": "0.1.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.hearth.tv"
+    },
+    "plugins": [
+      [
+        "@react-native-tvos/config-tv",
+        {
+          "isTV": true,
+          "showVerboseWarnings": false
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+
+# 原生工程由 expo prebuild 生成
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+
+.env
+.env.local
+
+# 内部工作笔记，不进公开仓库
+private/
