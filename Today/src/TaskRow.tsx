@@ -41,7 +41,7 @@ export function TaskRow({
       bounciness: 4,
     }).start();
 
-  const scale = lift.interpolate({inputRange: [0, 1], outputRange: [1, 1.025]});
+  const scale = lift.interpolate({inputRange: [0, 1], outputRange: [1, 1.022]});
 
   return (
     <Animated.View style={{transform: [{scale}]}}>
@@ -61,18 +61,19 @@ export function TaskRow({
           {
             backgroundColor: focused ? p.surfaceFocused : p.surface,
             borderColor: focused ? p.accent : p.border,
-            borderWidth: focused ? 3 : 1,
-            shadowColor: '#000',
-            shadowOpacity: focused ? 0.1 : 0,
-            shadowRadius: focused ? 24 : 0,
-            shadowOffset: {width: 0, height: focused ? 8 : 0},
-            elevation: focused ? 8 : 0,
+            borderWidth: focused ? 2 : 1,
+            shadowColor: p.shadow,
+            shadowOpacity: focused ? 1 : 0.55,
+            shadowRadius: focused ? 28 : 14,
+            shadowOffset: {width: 0, height: focused ? 10 : 4},
+            elevation: focused ? 10 : 2,
           },
         ]}>
-        {/* 「给她自己的」只用一道暖色边标出来。
-            不加徽章、不写「这件是给你的」——说出来就变成施舍了。 */}
+        {/* 「给她自己的」只用一道杏色边标出来。
+            冷色系里唯一的暖色标记，一眼认得出，又不用写字——
+            说出来就变成施舍了。 */}
         {forHer ? (
-          <View style={[s.herEdge, {backgroundColor: p.accent}]} />
+          <View style={[s.herEdge, {backgroundColor: p.warm}]} />
         ) : null}
 
         <View
@@ -115,27 +116,21 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: space.md,
     paddingHorizontal: space.lg,
-    borderRadius: 18,
+    borderRadius: 16,
     marginBottom: space.sm,
     overflow: 'hidden',
   },
-  herEdge: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 6,
-  },
+  herEdge: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 4},
   box: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 3,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: space.md,
   },
-  tick: {color: '#FFFFFF', fontSize: 26, fontWeight: '700', lineHeight: 30},
+  tick: {color: '#FFFFFF', fontSize: 16, fontWeight: '700', lineHeight: 18},
   textCol: {flex: 1},
   label: {fontSize: type.task, fontWeight: '500', letterSpacing: 0.2},
   note: {fontSize: type.meta, marginTop: 4},

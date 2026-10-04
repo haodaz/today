@@ -1,12 +1,14 @@
 /**
  * Today 视觉系统
  *
- * 两条约束决定了这套配色：
- * 1) 这块屏幕全天开着。固定一块高亮浅色面板从早亮到晚，既刺眼也费电。
- * 2) 它应该像家里的光，而不是像一个软件。
+ * 三条约束决定了这套配色：
  *
- * 所以背景随时间走：清晨偏冷、白天中性、傍晚转暖、入夜自动沉下来。
- * 这不是「深色模式」那种开关，是一天的光线变化。
+ * 1) 这块屏幕全天开着。暖橙暖棕一直在推你，看一天是累的；
+ *    极光色的浅蓝浅紫是退后的，不抢。
+ * 2) 老虎是橙色的。放在冷色上它成了画面里唯一的暖源，自己就跳出来，
+ *    不用给它加任何强调。
+ * 3) 背景随时间走——清晨偏蓝，白天最淡，傍晚转紫，入夜整块沉下来。
+ *    这不是「深色模式」那种开关，是一天的光线变化。
  */
 
 export type Daypart = 'dawn' | 'day' | 'dusk' | 'night';
@@ -20,87 +22,107 @@ export function daypartOf(d: Date): Daypart {
 }
 
 type Palette = {
-  bg: string;
+  /** 极光渐变的三个停点，从上到下 */
+  sky: [string, string, string];
   surface: string;
   surfaceFocused: string;
   border: string;
   text: string;
   textSoft: string;
   textFaint: string;
+  /** 交互主色：聚焦、勾选、按钮 */
   accent: string;
-  accentSoft: string;
+  /** 「给她自己的」用暖色标，和老虎同源，在冷色系里一眼认得出 */
+  warm: string;
   done: string;
+  shadow: string;
 };
 
-/** 主色：一点暖。全系统只有这一个彩色——其余都是中性灰。 */
-const EMBER = '#C2703D';
+const VIOLET = '#6B5CE7';
+const VIOLET_SOFT = '#8C7FF0';
+/** 杏色。只用在「这件是给你自己的」，全系统唯一的暖色标记。 */
+const APRICOT = '#E89B5B';
 
 export const palettes: Record<Daypart, Palette> = {
   dawn: {
-    bg: '#F6F7F9',
-    surface: '#FFFFFF',
-    surfaceFocused: '#FFFFFF',
-    border: '#E6E8EC',
-    text: '#1F2328',
-    textSoft: '#5B636E',
-    textFaint: '#99A0AA',
-    accent: EMBER,
-    accentSoft: '#F6E8DF',
-    done: '#8A9199',
+    sky: ['#EAF0FD', '#F0EFFB', '#F7F7FB'],
+    surface: 'rgba(255,255,255,0.82)',
+    surfaceFocused: 'rgba(255,255,255,0.96)',
+    border: 'rgba(107,92,231,0.14)',
+    text: '#1E1B2E',
+    textSoft: '#5A5570',
+    textFaint: '#9A95AD',
+    accent: VIOLET,
+    warm: APRICOT,
+    done: '#9A95AD',
+    shadow: 'rgba(107,92,231,0.16)',
   },
   day: {
-    bg: '#F5F5F4',
-    surface: '#FFFFFF',
-    surfaceFocused: '#FFFFFF',
-    border: '#E4E4E2',
-    text: '#1C1D1C',
-    textSoft: '#57595A',
-    textFaint: '#95989A',
-    accent: EMBER,
-    accentSoft: '#F7E9E0',
-    done: '#8C8F90',
+    sky: ['#EFF3FD', '#F4F2FC', '#F8F8FC'],
+    surface: 'rgba(255,255,255,0.84)',
+    surfaceFocused: 'rgba(255,255,255,0.97)',
+    border: 'rgba(107,92,231,0.13)',
+    text: '#1C1A2A',
+    textSoft: '#58546C',
+    textFaint: '#9793A6',
+    accent: VIOLET,
+    warm: APRICOT,
+    done: '#9793A6',
+    shadow: 'rgba(107,92,231,0.14)',
   },
   dusk: {
-    bg: '#F4EFE8',
-    surface: '#FBF8F4',
-    surfaceFocused: '#FFFDFA',
-    border: '#E6DED3',
-    text: '#241F1A',
-    textSoft: '#5E554B',
-    textFaint: '#9A9087',
-    accent: EMBER,
-    accentSoft: '#F0E0D2',
-    done: '#8F867C',
+    sky: ['#EDE9FA', '#F1ECF8', '#F6F2F6'],
+    surface: 'rgba(255,255,255,0.80)',
+    surfaceFocused: 'rgba(255,255,255,0.95)',
+    border: 'rgba(107,92,231,0.15)',
+    text: '#231D33',
+    textSoft: '#5E5572',
+    textFaint: '#9B93AC',
+    accent: VIOLET_SOFT,
+    warm: APRICOT,
+    done: '#9B93AC',
+    shadow: 'rgba(107,92,231,0.18)',
   },
   night: {
-    // 入夜后整块屏沉下来：不刺眼、不招人看、也不会在客厅里当第二个灯泡
-    bg: '#17161A',
-    surface: '#1F1E23',
-    surfaceFocused: '#272529',
-    border: '#2E2C32',
-    text: '#EDEAE6',
-    textSoft: '#A7A29C',
-    textFaint: '#6E6A66',
-    accent: '#D98B5A',
-    accentSoft: '#3A2A20',
-    done: '#6E6A66',
+    // 入夜整块沉下来：不刺眼、不招人看，也不会在客厅里当第二个灯泡
+    sky: ['#14131E', '#171623', '#131220'],
+    surface: 'rgba(255,255,255,0.055)',
+    surfaceFocused: 'rgba(255,255,255,0.11)',
+    border: 'rgba(160,148,255,0.16)',
+    text: '#E9E6F2',
+    textSoft: '#A49FBA',
+    textFaint: '#6F6A85',
+    accent: '#A094FF',
+    warm: '#E0A472',
+    done: '#6F6A85',
+    shadow: 'rgba(0,0,0,0.5)',
   },
 };
 
 /**
  * 10-foot UI 字号梯度。
- * 电视的观看距离是手机的 8–10 倍，手机上的 16px 在沙发上约等于看不见。
- * 最小字号 20，正文 34。
+ *
+ * 关键的一个数：这台 Fire TV 是 4K 面板，density 320（×2），
+ * 渲染分辨率 1920×1080 —— 所以竖向可用只有 540 dp，
+ * 去掉上下安全区后只剩 428 dp。
+ *
+ * 一开始我按「1080 像素」定的字号（时钟 92、正文 34），
+ * 算下来右栏要七百多 dp，塞进 428 dp 里怎么调边距都溢出。
+ * 下面这套是按 428 dp 倒推的：
+ *   标题 16 + 三张卡 3×64 + 记忆块 56 ≈ 264 dp，留足余量。
+ *
+ * 电视的观看距离是手机的 8–10 倍，所以即使 dp 数不大，
+ * 物理尺寸仍然是手机的两倍——正文 20 dp 在 50 吋屏上约 1.3 cm 高。
  */
 export const type = {
-  clock: 92,
-  greeting: 44,
-  task: 34,
-  section: 22,
-  meta: 20,
+  clock: 56,
+  greeting: 26,
+  task: 20,
+  section: 13,
+  meta: 12,
 };
 
 /** 电视会裁边（overscan）。所有内容收在 5% 安全区内。 */
-export const safe = { h: 72, v: 56 };
+export const safe = {h: 44, v: 30};
 
-export const space = { xs: 8, sm: 14, md: 22, lg: 36, xl: 56 };
+export const space = {xs: 5, sm: 8, md: 13, lg: 20, xl: 30};

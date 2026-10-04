@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Image, SafeAreaView, StatusBar, StyleSheet, Text, View} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
 import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
@@ -16,18 +17,21 @@ import type {Card, Turn} from './src/agent/types';
 const API = 'http://192.168.1.243:8910';
 
 /** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
-const QR = 260;
+const QR = 160;
 
 const EMPTY: Turn = {say: '', cards: []};
 
 /** 捧心的小老虎。它捧着的就是她交给它的事。 */
-const TIGER = require('./assets/today/today-holding.png');
+const TIGER = require('./assets/today/today-tiger.png');
 
 export default function App() {
   // 这块屏幕要全天亮着，不能让系统屏保把它盖掉
   useKeepAwake();
 
-  const lang = useMemo(detectLang, []);
+  const deviceLang = useMemo(detectLang, []);
+  // 语言跟着内容走：Today 说中文时界面也该是中文，
+  // 否则「I also remember」底下跟着一串中文，像两个人在说话
+  const [lang, setLang] = useState(deviceLang);
   const x = t(lang);
 
   const [now, setNow] = useState(new Date());
@@ -50,7 +54,15 @@ export default function App() {
         const r = await fetch(`${API}/turn`);
         if (!r.ok) return;
         const next = (await r.json()) as Turn;
-        if (alive) setTurn(next);
+        if (!alive) return;
+        setTurn(next);
+        const body =
+          next.say +
+          next.cards.flatMap(c =>
+            c.type === 'tasks' ? c.items.map(i => i.label) :
+            c.type === 'later' ? c.items : c.items.map(i => i.text),
+          ).join('');
+        if (/[\u4e00-\u9fa5]/.test(body)) setLang('zh');
       } catch {
         // 取不到就维持现状。不在屏幕上报错——
         // 一块陪着你的屏不该因为网络抖动就报警。
@@ -104,7 +116,13 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={[s.root, {backgroundColor: p.bg}]}>
+    <LinearGradient
+      colors={p.sky}
+      locations={[0, 0.52, 1]}
+      start={{x: 0.15, y: 0}}
+      end={{x: 0.85, y: 1}}
+      style={s.root}>
+      <SafeAreaView style={s.root}>
       <StatusBar hidden />
       <View style={s.page}>
         {/* 左栏：时间，和 Today 说的话。
@@ -121,7 +139,11 @@ export default function App() {
               这块屏上最重要的不是清单，是有人在替你记着。 */}
           <View style={s.voice}>
             <Image source={TIGER} style={s.tiger} resizeMode="contain" />
-            <Text style={[s.say, {color: p.text}]}>{turn.say || x.empty}</Text>
+            {/* 四行封顶。模型输出的长度不可控，界面不能指望它守规矩——
+                溢出会把下面的内容顶出屏幕。 */}
+            <Text style={[s.say, {color: p.text}]} numberOfLines={3}>
+              {turn.say || x.empty}
+            </Text>
           </View>
 
           {later?.type === 'later' ? (
@@ -206,7 +228,8 @@ export default function App() {
           )}
         </View>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -230,18 +253,20 @@ const s = StyleSheet.create({
     lineHeight: type.clock * 1.05,
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
-  rule: {height: 1, width: 72, marginVertical: space.sm},
+  rule: {height: 1, width: 44, marginVertical: space.sm},
   // 老虎在话的上面，不在旁边——并排会把文字挤窄，一句话从三行变五行，
   // 整列就撑出屏幕了。而且先看见它、再听见它说话，顺序也对。
   voice: {alignItems: 'flex-start'},
   // 不要太大。它是陪着的，不是主角；主角是她今天要过的日子。
-  tiger: {width: 84, height: 80, marginBottom: space.xs},
-  say: {flexShrink: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 52},
-  laterBlock: {marginTop: space.md, paddingBottom: space.sm},
-  memBlock: {marginTop: space.lg, paddingHorizontal: space.xs},
+  tiger: {width: 62, height: 86, marginBottom: space.xs},
+  say: {flexShrink: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 34},
+  laterBlock: {marginTop: space.sm, paddingBottom: space.xs},
+  memBlock: {marginTop: space.md, paddingHorizontal: space.xs},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
-  smallItem: {fontSize: type.meta, lineHeight: 30},
-  right: {flex: 1, justifyContent: 'center'},
+  smallItem: {fontSize: type.meta, lineHeight: 18},
+  // 右栏的高度不可控（卡片数 + 记忆条数），居中会上下同时溢出。
+  // 顶部对齐 + 内容自行收缩。
+  right: {flex: 1, justifyContent: 'center', paddingVertical: space.xs},
   cardHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -254,6 +279,6 @@ const s = StyleSheet.create({
   footer: {fontSize: type.meta, marginTop: space.md, paddingHorizontal: space.xs},
   empty: {alignItems: 'center', justifyContent: 'center'},
   // 二维码必须有白底和留白才扫得动，哪怕整页背景是暖色或夜间深色
-  qrFrame: {padding: space.md, borderRadius: 16},
+  qrFrame: {padding: space.md, borderRadius: 20},
   scanHint: {fontSize: type.section, marginTop: space.md, textAlign: 'center'},
 });
