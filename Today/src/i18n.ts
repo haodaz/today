@@ -15,7 +15,7 @@ const DICT = {
     notToday: '今天不做',
     remoteHint: '按遥控器上下选，中间键打勾',
     empty: '今天还没理。',
-    emptyHint: (url: string) => `在手机上打开 ${url}`,
+    scanHint: '手机扫一下，说说今天',
     weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
     date: (m: number, d: number, w: string) => `${m} 月 ${d} 日 · ${w}`,
   },
@@ -26,7 +26,7 @@ const DICT = {
     notToday: 'Not today',
     remoteHint: 'Up and down to move, centre to check off',
     empty: "Today isn't sorted yet.",
-    emptyHint: (url: string) => `Open ${url} on your phone`,
+    scanHint: 'Scan with your phone and tell it about today',
     weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     date: (m: number, d: number, w: string) =>
       `${['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1]} ${d} · ${w}`,

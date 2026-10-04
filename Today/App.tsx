@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {SafeAreaView, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {useKeepAwake} from 'expo-keep-awake';
+import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
 import {daypartOf, palettes, safe, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
@@ -10,6 +11,9 @@ import type {Plan} from './src/agent/types';
 const API = 'http://192.168.1.243:8910';
 
 const EMPTY: Plan = {greeting: '', focus: [], later: []};
+
+/** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
+const QR = 260;
 
 export default function App() {
   // 这块屏幕要全天亮着，不能让系统屏保把它盖掉
@@ -140,10 +144,21 @@ export default function App() {
             </>
           ) : (
             // 空的时候不写「暂无数据」。
-            // 只是安静地告诉她去哪儿说话。
-            <Text style={[s.emptyHint, {color: p.textFaint}]}>
-              {x.emptyHint(API.replace(/^https?:\/\//, ''))}
-            </Text>
+            // 一块二维码，扫一下就能说话——
+            // 没人该在手机上手敲一串 IP 地址，尤其是一个很累的人。
+            <View style={s.empty}>
+              <View style={[s.qrFrame, {backgroundColor: '#FFFFFF'}]}>
+                <QRCode
+                  value={API}
+                  size={QR}
+                  color="#1C1D1C"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
+              <Text style={[s.scanHint, {color: p.textFaint}]}>
+                {x.scanHint}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -183,5 +198,8 @@ const s = StyleSheet.create({
   section: {fontSize: type.section, fontWeight: '600', letterSpacing: 1},
   count: {fontSize: type.meta},
   footer: {fontSize: type.meta, marginTop: space.md, paddingHorizontal: space.xs},
-  emptyHint: {fontSize: type.section, textAlign: 'center'},
+  empty: {alignItems: 'center', justifyContent: 'center'},
+  // 二维码必须有白底和留白才扫得动，哪怕整页背景是暖色或夜间深色
+  qrFrame: {padding: space.md, borderRadius: 16},
+  scanHint: {fontSize: type.section, marginTop: space.md, textAlign: 'center'},
 });
