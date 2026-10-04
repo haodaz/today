@@ -13,7 +13,7 @@
  *   node server/index.mjs
  */
 import {createServer} from 'node:http';
-import {readFileSync, writeFileSync, existsSync, mkdirSync} from 'node:fs';
+import {readFileSync, writeFileSync, existsSync, mkdirSync, statSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
@@ -213,9 +213,19 @@ createServer(async (req, res) => {
   }
 
   // Today 的形象
-  if (url.pathname === '/today-listening.png') {
-    res.writeHead(200, {'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400'});
-    return res.end(readFileSync(join(ROOT, 'assets/today/today-listening.png')));
+  if (/^\/today-[a-z0-9-]+\.png$/.test(url.pathname)) {
+    const f = join(ROOT, 'assets/today', url.pathname.slice(1));
+    if (!existsSync(f)) return json(res, 404, {error: 'no such figure'});
+    // 用文件 mtime 做 ETag：形象换了浏览器立刻拿到新的，
+    // 没换则走 304。开发期一天的强缓存会让人以为代码没生效。
+    const tag = `"${statSync(f).mtimeMs}"`;
+    if (req.headers['if-none-match'] === tag) { res.writeHead(304); return res.end(); }
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-cache',
+      ETag: tag,
+    });
+    return res.end(readFileSync(f));
   }
 
   /**

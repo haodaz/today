@@ -4,321 +4,307 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FBF4EE">
 <title>Today</title>
 <style>
-  /* 和电视端同一套：中性灰 + 一个暖色。
-     这一页只有一个角色和一件事，所以没有导航、没有标题栏、没有别的入口。 */
+  /*
+   * 手机端按应用来做，不是网页。
+   * 语言取自同类可信赖产品（蚂蚁阿福这一类）：柔和渐变底、角色在场、
+   * 毛玻璃卡片、底部常驻的输入条。
+   *
+   * 底部那条是关键：它一直在，但很薄、很安静。
+   * 「点一下才出来一个大白框」是在索取；一条安静的输入条是在等着。
+   */
   :root{
-    --bg:#F5F5F4; --surface:#FFF; --border:#E4E4E2;
-    --text:#1C1D1C; --soft:#57595A; --faint:#95989A;
-    --ember:#C2703D;
+    --ember:#C2703D; --ember-deep:#A85C2E; --ember-tint:#F6E3D5;
+    --ink:#231E1A; --soft:#6B625B; --faint:#A39A92;
+    --glass:rgba(255,255,255,.78);
+    --line:rgba(194,112,61,.14);
+    --shadow:0 8px 28px rgba(194,112,61,.10);
+    --shadow-lift:0 12px 34px rgba(194,112,61,.16);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#17161A; --surface:#1F1E23; --border:#2E2C32;
-      --text:#EDEAE6; --soft:#A7A29C; --faint:#6E6A66; --ember:#D98B5A;
+      --ember:#E09A68; --ember-deep:#C2703D; --ember-tint:#3A2A1F;
+      --ink:#F2EDE8; --soft:#B3A99F; --faint:#7D736B;
+      --glass:rgba(38,33,30,.72);
+      --line:rgba(224,154,104,.16);
+      --shadow:0 8px 28px rgba(0,0,0,.34);
+      --shadow-lift:0 12px 34px rgba(0,0,0,.44);
     }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;overscroll-behavior:none}
   body{
-    background:var(--bg); color:var(--text);
+    color:var(--ink);
     font:400 17px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;
-    display:flex; flex-direction:column;
-    padding:max(18px,env(safe-area-inset-top)) 20px max(18px,env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;
+    /* 柔和渐变底，不是一块平灰 */
+    background:
+      radial-gradient(120% 60% at 85% 0%, rgba(194,112,61,.13), transparent 60%),
+      radial-gradient(90% 50% at 0% 12%, rgba(194,112,61,.07), transparent 55%),
+      linear-gradient(170deg,#FBF4EE 0%,#F6F1EC 46%,#F3F1EE 100%);
+  }
+  @media (prefers-color-scheme: dark){
+    body{background:
+      radial-gradient(120% 60% at 85% 0%, rgba(224,154,104,.12), transparent 60%),
+      linear-gradient(170deg,#1C1816 0%,#191715 100%);}
   }
 
-  /* Today 本人。它在那儿，先开口，然后等着。
-     输入不摊在页面上要求她填——那是另一件事，由她触发。 */
-  .today{display:flex;gap:14px;align-items:flex-start;padding:6px 2px 0}
-  .tiger{width:76px;height:auto;flex:0 0 auto;margin-top:-6px;transition:opacity .25s}
-  .tiger.thinking{opacity:.45}
-  .say{font-size:23px;font-weight:300;line-height:1.45;margin:6px 0 0;min-height:1.45em}
+  /* ── Today 在场 ───────────────────────────── */
+  header{
+    padding:max(14px,env(safe-area-inset-top)) 20px 4px;
+    display:flex;gap:14px;align-items:flex-end;flex:0 0 auto;
+  }
+  .tiger{
+    width:118px;height:auto;flex:0 0 auto;margin-bottom:-6px;
+    filter:drop-shadow(0 10px 18px rgba(194,112,61,.20));
+    transition:opacity .3s, transform .3s;
+  }
+  .tiger.thinking{opacity:.55;transform:translateY(2px) scale(.98)}
+  .hello{flex:1;padding-bottom:10px;min-width:0}
+  .brand{font-size:11px;letter-spacing:.22em;color:var(--faint);font-weight:600;margin:0 0 5px}
+  .say{font-size:21px;font-weight:400;line-height:1.42;margin:0;letter-spacing:.01em}
   .say.pending{color:var(--faint)}
 
-  main{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-top:18px}
-
-  /* 卡片。结构化的东西走卡片，不塞进对话里让人去读。 */
-  .cards{overflow:auto;margin-bottom:8px}
+  /* ── 卡片区 ───────────────────────────────── */
+  main{flex:1;overflow-y:auto;padding:14px 20px 8px;-webkit-overflow-scrolling:touch}
   .card{
-    background:var(--surface);border:1px solid var(--border);border-radius:16px;
-    padding:15px 17px;margin-bottom:9px;position:relative;overflow:hidden;
-    display:flex;gap:13px;align-items:flex-start;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(20px) saturate(1.6);
+    backdrop-filter:blur(20px) saturate(1.6);
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:17px 19px;margin-bottom:11px;
+    box-shadow:var(--shadow);
+    display:flex;gap:14px;align-items:flex-start;
+    position:relative;overflow:hidden;
+    animation:rise .34s cubic-bezier(.2,.7,.3,1) backwards;
   }
-  .card.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ember)}
-  .box{flex:0 0 auto;width:21px;height:21px;border:2px solid var(--border);border-radius:7px;margin-top:2px}
-  .lab{font-size:17px;font-weight:500}
-  .sub{font-size:13.5px;color:var(--faint);margin-top:2px}
-  .quiet-h{margin:16px 2px 6px;font-size:12px;letter-spacing:.1em;color:var(--faint)}
-  .quiet{margin:0 2px;color:var(--faint);font-size:14.5px;line-height:1.9}
+  .card:nth-child(2){animation-delay:.05s}
+  .card:nth-child(3){animation-delay:.1s}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}}
+  /* 「给她自己的」那件：一道暖色边。不写字，说出来就变成施舍了。 */
+  .card.her{box-shadow:var(--shadow-lift)}
+  .card.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+    background:linear-gradient(180deg,var(--ember),var(--ember-deep))}
+  .box{flex:0 0 auto;width:23px;height:23px;border:2px solid var(--line);
+    border-radius:8px;margin-top:3px;background:rgba(255,255,255,.4)}
+  .lab{font-size:17.5px;font-weight:500;letter-spacing:.01em}
+  .sub{font-size:13.5px;color:var(--faint);margin-top:3px}
 
-  /* 触发区 */
-  .act{display:flex;gap:10px;padding-top:4px}
-  button{
-    flex:1;padding:16px;border:0;border-radius:15px;
-    font:600 17px/1 inherit;letter-spacing:.01em;
-    background:var(--ember);color:#fff;transition:opacity .15s,transform .08s;
+  .quiet-h{margin:18px 4px 8px;font-size:11px;letter-spacing:.16em;color:var(--faint);font-weight:600}
+  .quiet{display:flex;flex-wrap:wrap;gap:7px;margin:0 2px}
+  .chip{
+    font-size:13.5px;color:var(--soft);
+    background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid var(--line);border-radius:999px;padding:6px 13px;
   }
-  button:active{transform:scale(.985)}
-  button:disabled{opacity:.45}
-  button.ghost{flex:0 0 auto;padding:16px 20px;background:transparent;color:var(--soft);border:1px solid var(--border);font-weight:500}
 
-  textarea{
-    width:100%;min-height:150px;resize:none;margin-bottom:10px;
-    background:var(--surface);color:var(--text);
-    border:1px solid var(--ember);border-radius:16px;
-    padding:16px;font:inherit;line-height:1.7;outline:none;
+  /* ── 底部常驻输入条 ───────────────────────── */
+  footer{
+    flex:0 0 auto;padding:8px 16px max(14px,env(safe-area-inset-bottom));
   }
-  textarea::placeholder{color:var(--faint)}
-  .hint{margin:0 2px 10px;font-size:13.5px;color:var(--faint)}
-  /* 录音时的音量条。不画波形——她不需要看自己的声音好不好看，
-     只需要知道「它确实在收」。 */
-  .level{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:0 2px 12px}
-  .level span{display:block;height:100%;width:0;background:var(--ember);transition:width .08s linear}
-  .err{color:#B3261E;font-size:14.5px;margin:8px 2px 0}
+  .bar{
+    display:flex;align-items:center;gap:10px;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(24px) saturate(1.7);
+    backdrop-filter:blur(24px) saturate(1.7);
+    border:1px solid var(--line);border-radius:999px;
+    padding:7px 7px 7px 20px;box-shadow:var(--shadow);
+  }
+  .bar input{
+    flex:1;min-width:0;border:0;background:transparent;outline:none;
+    font:inherit;font-size:16px;color:var(--ink);padding:9px 0;
+  }
+  .bar input::placeholder{color:var(--faint)}
+  .mic{
+    flex:0 0 auto;width:44px;height:44px;border:0;border-radius:50%;
+    background:linear-gradient(145deg,var(--ember),var(--ember-deep));
+    color:#fff;display:grid;place-items:center;
+    box-shadow:0 4px 14px rgba(194,112,61,.34);
+    transition:transform .12s, box-shadow .2s;
+  }
+  .mic:active{transform:scale(.93)}
+  .mic.on{animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{
+    0%,100%{box-shadow:0 4px 14px rgba(194,112,61,.34)}
+    50%{box-shadow:0 4px 14px rgba(194,112,61,.34),0 0 0 11px rgba(194,112,61,.12)}
+  }
+  .mic svg{width:21px;height:21px;fill:currentColor}
+
+  /* 录音态把输入条换成电平条 */
+  .level{flex:1;height:5px;border-radius:3px;background:var(--ember-tint);overflow:hidden;margin:0 2px}
+  .level span{display:block;height:100%;width:0;background:var(--ember);transition:width .07s linear}
+  .ghost{flex:0 0 auto;border:0;background:transparent;color:var(--soft);
+    font:inherit;font-size:15px;padding:10px 8px}
+
+  .err{margin:8px 20px 0;font-size:14px;color:#B3261E}
   [hidden]{display:none !important}
 </style>
 </head>
 <body>
 
-<div class="today">
-  <img class="tiger" id="tiger" src="/today-listening.png" alt="">
-  <p class="say pending" id="say"></p>
-</div>
-
-<main>
-  <div class="cards" id="cards"></div>
-
-  <!-- 常态：Today 在那儿，她想说的时候才触发。
-       主按钮是说话，不是打字——她手上多半抱着孩子。 -->
-  <div class="act" id="rest">
-    <button id="rec"></button>
-    <button class="ghost" id="type"></button>
+<header>
+  <!-- 捧着的那只：两爪收在胸前、目光微微向下，不盯着人。
+       这个姿势本身就是「我替你记着」。 -->
+  <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
+  <div class="hello">
+    <p class="brand">TODAY</p>
+    <p class="say pending" id="say"></p>
   </div>
+</header>
 
-  <!-- 录音中 -->
-  <div id="recording" hidden>
-    <p class="level"><span id="bar"></span></p>
-    <p class="hint" id="recHint"></p>
-    <div class="act">
-      <button id="stop"></button>
-      <button class="ghost" id="drop"></button>
-    </div>
+<main id="cards"></main>
+<p class="err" id="err" hidden></p>
+
+<footer>
+  <!-- 常态：一条安静的输入条。一直在，但不索取。 -->
+  <div class="bar" id="bar">
+    <input id="t" autocomplete="off">
+    <button class="mic" id="mic" aria-label="说">
+      <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
+    </button>
   </div>
-
-  <!-- 她触发之后 -->
-  <div id="compose" hidden>
-    <textarea id="t" rows="6"></textarea>
-    <p class="hint" id="hint"></p>
-    <div class="act">
-      <button id="send"></button>
-      <button class="ghost" id="cancel"></button>
-    </div>
+  <!-- 录音态 -->
+  <div class="bar" id="recbar" hidden>
+    <div class="level"><span id="lv"></span></div>
+    <button class="ghost" id="drop"></button>
+    <button class="mic on" id="stop" aria-label="说完了">
+      <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
+    </button>
   </div>
-
-  <p class="err" id="err" hidden></p>
-</main>
+</footer>
 
 <script>
 const $ = id => document.getElementById(id);
-
 const DICT = {
-  zh: {
-    rec: '按住说，或点一下开始', type: '打字', stop: '说完了', drop: '算了',
-    recording: '在听…', hearing: '它在听你说…',
-    send: '说完了', sending: '它在听…', cancel: '算了',
-    noMic: '这台设备不让网页用麦克风。先打字吧。',
-    ph: '想到什么说什么，不用整理。',
-    hint: '可以直接说，也可以打字。',
-    quiet: '我先收着', err: '没弄成：',
-    fallback: '我在。',
-  },
-  en: {
-    rec: 'Hold to talk, or tap to start', type: 'Type', stop: "That's everything", drop: 'Never mind',
-    recording: 'Listening…', hearing: 'Taking that in…',
-    send: "That's everything", sending: 'Listening…', cancel: 'Never mind',
-    noMic: "This device won't give the page a microphone. Type instead.",
-    ph: 'Say it however it comes. No need to sort it out.',
-    hint: 'Speak it or type it, whichever is easier.',
-    quiet: "I'm keeping these", err: "Didn't work: ",
-    fallback: "I'm here.",
-  },
+  zh: {ph:'说点什么，或者按右边说话', drop:'算了', hearing:'我在听…', taking:'我记一下…',
+       quiet:'我先收着', err:'没弄成：', fallback:'我在。',
+       noMic:'这台设备不让网页用麦克风，直接打字吧。'},
+  en: {ph:'Type, or hold the mic', drop:'Never mind', hearing:'Listening…', taking:'Taking that in…',
+       quiet:"I'm keeping these", err:"Didn't work: ", fallback:"I'm here.",
+       noMic:"This device won't give the page a microphone. Type instead."},
 };
 const LANG = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
 const X = DICT[LANG];
 document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
-$('rec').textContent = X.rec;
-$('type').textContent = X.type;
-$('stop').textContent = X.stop;
-$('drop').textContent = X.drop;
-$('recHint').textContent = X.recording;
-$('send').textContent = X.send;
-$('cancel').textContent = X.cancel;
 $('t').placeholder = X.ph;
-$('hint').textContent = X.hint;
+$('drop').textContent = X.drop;
 
-/* Today 先开口。
-   这句话是它生成的，不是写死的标语——它用它记得的东西说一句只有它能说的话。
-   拿不到就退回一句最短的，不让它挡住她。 */
+const setSay = (t, pending) => {
+  $('say').textContent = t;
+  $('say').classList.toggle('pending', !!pending);
+};
+const thinking = on => $('tiger').classList.toggle('thinking', on);
+const showErr = m => { $('err').textContent = X.err + String(m).slice(0,150); $('err').hidden = false; };
+
+/* Today 先开口。这句话是它生成的，用它记得的东西说一句只有它能说的话。 */
 (async () => {
   try {
-    const r = await fetch(`/greet?lang=${LANG}`);
-    const {say} = await r.json();
+    const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
     setSay(say || X.fallback);
   } catch { setSay(X.fallback); }
+  try { render(await (await fetch('/turn')).json(), true); } catch {}
 })();
 
-function setSay(text, pending) {
-  $('say').textContent = text;
-  $('say').classList.toggle('pending', !!pending);
-}
-const thinking = on => $('tiger').classList.toggle('thinking', on);
-
-$('type').onclick = () => {
-  $('rest').hidden = true;
-  $('compose').hidden = false;
-  $('t').focus();
-};
-
-/* ── 录音 ──────────────────────────────────────────────────
-   不依赖键盘的听写键：实测很多手机根本没有那个键。
-   getUserMedia 需要安全上下文，所以这页必须走 HTTPS——
-   局域网 http:// 下 iOS Safari 不会给麦克风权限。
-   ─────────────────────────────────────────────────────── */
+/* ── 录音 ─────────────────────────────────────
+   不依赖键盘的听写键：很多手机没有那个键。
+   getUserMedia 要安全上下文，所以这页必须走 HTTPS。
+   ──────────────────────────────────────────── */
 let rec = null, chunks = [], meter = null;
 
-async function startRec() {
+$('mic').onclick = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-    // iOS Safari 录 audio/mp4，安卓录 audio/webm，让浏览器自己挑
-    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+    const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4']
       .find(m => window.MediaRecorder?.isTypeSupported?.(m));
     rec = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
     chunks = [];
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
-      if (meter) { meter.ctx.close().catch(() => {}); meter = null; }
-      $('bar').style.width = '0%';
-      send(new Blob(chunks, {type: rec.mimeType || 'audio/webm'}));
+      meter?.ctx.close().catch(()=>{}); meter = null;
+      $('lv').style.width = '0%';
+      sendAudio(new Blob(chunks, {type: rec.mimeType || 'audio/webm'}));
     };
     rec.start();
     level(stream);
-    $('rest').hidden = true;
-    $('recording').hidden = false;
-    thinking(false);
-  } catch (e) {
-    $('err').textContent = X.noMic;
-    $('err').hidden = false;
-    $('type').click();
-  }
-}
-
-/** 音量条。只是让她知道「它确实在收」，不画波形。 */
-function level(stream) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const an = ctx.createAnalyser();
-    an.fftSize = 256;
-    ctx.createMediaStreamSource(stream).connect(an);
-    const buf = new Uint8Array(an.frequencyBinCount);
-    meter = {ctx};
-    const tick = () => {
-      if (!meter) return;
-      an.getByteTimeDomainData(buf);
-      let peak = 0;
-      for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-      $('bar').style.width = Math.min(100, (peak / 60) * 100) + '%';
-      requestAnimationFrame(tick);
-    };
-    tick();
-  } catch {}
-}
-
-$('rec').onclick = () => { if (!rec || rec.state === 'inactive') startRec(); };
+    $('bar').hidden = true; $('recbar').hidden = false;
+    $('err').hidden = true;
+    setSay(X.hearing, true);
+  } catch { showErr(X.noMic); $('t').focus(); }
+};
 $('stop').onclick = () => rec?.state === 'recording' && rec.stop();
 $('drop').onclick = () => {
   if (rec?.state === 'recording') { chunks = []; rec.onstop = null; rec.stop(); }
-  if (meter) { meter.ctx.close().catch(() => {}); meter = null; }
-  rec = null;
-  $('recording').hidden = true;
-  $('rest').hidden = false;
+  meter?.ctx.close().catch(()=>{}); meter = null; rec = null;
+  $('recbar').hidden = true; $('bar').hidden = false;
+  setSay('');
 };
 
-async function send(blob) {
-  $('recording').hidden = true;
-  setSay(X.hearing, true);
-  thinking(true);
+/** 电平条。只是让她知道「它确实在收」，不画波形。 */
+function level(stream) {
   try {
-    const r = await fetch('/transcribe', {
-      method: 'POST',
-      headers: {'Content-Type': blob.type || 'audio/webm'},
-      body: blob,
-    });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = ctx.createAnalyser(); an.fftSize = 256;
+    ctx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.frequencyBinCount);
+    meter = {ctx};
+    (function tick(){
+      if (!meter) return;
+      an.getByteTimeDomainData(buf);
+      let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v-128));
+      $('lv').style.width = Math.min(100, (peak/58)*100) + '%';
+      requestAnimationFrame(tick);
+    })();
+  } catch {}
+}
+
+async function sendAudio(blob) {
+  $('recbar').hidden = true; $('bar').hidden = false;
+  setSay(X.taking, true); thinking(true);
+  try {
+    const r = await fetch('/transcribe', {method:'POST', headers:{'Content-Type': blob.type||'audio/webm'}, body: blob});
     if (!r.ok) throw new Error(await r.text());
     const {text} = await r.json();
     if (!text) throw new Error('没听清');
-    await submit(text);
-  } catch (e) {
-    $('err').textContent = X.err + String(e.message || e).slice(0, 160);
-    $('err').hidden = false;
-    setSay('');
-  } finally {
-    thinking(false);
-    rec = null;
-    $('rest').hidden = false;
-  }
+    render(await submit(text));
+  } catch (e) { showErr(e.message || e); setSay(''); }
+  finally { thinking(false); rec = null; }
 }
-$('cancel').onclick = () => {
-  $('compose').hidden = true;
-  $('rest').hidden = false;
-  $('t').value = '';
-};
 
 /** 说的和打的走同一条路：到这里都只是一段文字。 */
-async function submit(text) {
+const submit = async text => {
   const r = await fetch('/braindump', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({braindump: text, lang: LANG}),
   });
   if (!r.ok) throw new Error(await r.text());
-  render(await r.json());
-}
-
-$('send').onclick = async () => {
-  const text = $('t').value.trim();
-  if (!text) { $('t').focus(); return; }
-  $('send').disabled = true;
-  $('send').textContent = X.sending;
-  $('err').hidden = true;
-  thinking(true);
-  try {
-    await submit(text);
-    $('compose').hidden = true;
-    $('rest').hidden = false;
-    $('t').value = '';
-  } catch (e) {
-    $('err').textContent = X.err + String(e.message || e).slice(0, 160);
-    $('err').hidden = false;
-  } finally {
-    thinking(false);
-    $('send').disabled = false;
-    $('send').textContent = X.send;
-  }
+  return r.json();
 };
 
-function render(turn) {
-  setSay(turn.say || '');
+$('t').addEventListener('keydown', async e => {
+  if (e.key !== 'Enter') return;
+  const text = $('t').value.trim();
+  if (!text) return;
+  $('t').value = ''; $('t').blur();
+  setSay(X.taking, true); thinking(true); $('err').hidden = true;
+  try { render(await submit(text)); }
+  catch (err) { showErr(err.message || err); setSay(''); }
+  finally { thinking(false); }
+});
+
+function render(turn, quiet) {
+  if (!quiet) setSay(turn.say || '');
   const box = $('cards');
   box.innerHTML = '';
-
   for (const c of turn.cards || []) {
     if (c.type === 'tasks') {
       for (const t of c.items) {
         const el = document.createElement('div');
         el.className = 'card' + (t.forHer ? ' her' : '');
-        el.innerHTML = '<div class="box"></div><div><div class="lab"></div>' +
+        el.innerHTML = '<div class="box"></div><div style="min-width:0"><div class="lab"></div>' +
                        (t.note ? '<div class="sub"></div>' : '') + '</div>';
         // textContent 填值，不把模型输出当 HTML 解析
         el.querySelector('.lab').textContent = t.label;
@@ -328,12 +314,16 @@ function render(turn) {
     } else if (c.type === 'later' && c.items.length) {
       const h = document.createElement('div');
       h.className = 'quiet-h'; h.textContent = X.quiet;
-      const p = document.createElement('div');
-      p.className = 'quiet'; p.textContent = c.items.join(' · ');
-      box.append(h, p);
+      const wrap = document.createElement('div');
+      wrap.className = 'quiet';
+      for (const s of c.items) {
+        const chip = document.createElement('span');
+        chip.className = 'chip'; chip.textContent = s;
+        wrap.appendChild(chip);
+      }
+      box.append(h, wrap);
     }
   }
-  box.scrollTop = box.scrollHeight;
 }
 </script>
 </body>
