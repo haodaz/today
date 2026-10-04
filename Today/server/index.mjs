@@ -118,16 +118,27 @@ function mergeMemory(cur, add) {
   return out;
 }
 
-/** 模型不总是听话。超过三件截断，done 从 false 开始，缺字段补默认值。 */
-function toTurn(v) {
+/**
+ * 模型不总是听话。超过三件截断，缺字段补默认值。
+ *
+ * done 的处理是关键：她在和 Today 商量这张卡时，模型可能忘记带回 done。
+ * 已有 id 的事项一律以服务端记的 done 为准，除非模型明确把它设成了 true——
+ * 她说「做完了」要生效，但模型的疏忽不该把她打过的勾抹掉。
+ */
+function toTurn(v, prev) {
   const o = v ?? {};
-  const tasks = (Array.isArray(o.focus) ? o.focus : []).slice(0, 3).map((t, i) => ({
-    id: String(t?.id ?? i + 1),
-    label: String(t?.label ?? '').trim(),
-    note: t?.note ? String(t.note).trim() : undefined,
-    forHer: t?.forHer === true,
-    done: false,
-  })).filter(t => t.label);
+  const was = new Map((prev?.focus ?? []).map(t => [t.id, t]));
+  const tasks = (Array.isArray(o.focus) ? o.focus : []).slice(0, 3).map((t, i) => {
+    const id = String(t?.id ?? i + 1);
+    const old = was.get(id);
+    return {
+      id,
+      label: String(t?.label ?? '').trim(),
+      note: t?.note ? String(t.note).trim() : undefined,
+      forHer: t?.forHer === true,
+      done: t?.done === true || (old?.done === true && t?.done !== false),
+    };
+  }).filter(t => t.label);
 
   const later = (Array.isArray(o.later) ? o.later : [])
     .map(String).map(s => s.trim()).filter(Boolean).slice(0, 8);
@@ -137,6 +148,15 @@ function toTurn(v) {
   if (later.length) cards.push({type: 'later', items: later});
 
   return {turn: {say: typeof o.say === 'string' ? o.say : '', cards}, remember: o.remember ?? {}};
+}
+
+/** 今天已经排好的那张卡，喂回给模型让它改而不是重排。 */
+function currentPlan() {
+  const t = latestTasks();
+  const later = [...(loadDay()?.messages ?? [])].reverse()
+    .flatMap(m => m.cards ?? []).find(c => c.type === 'later');
+  if (!t && !later) return undefined;
+  return {focus: t?.card.items ?? [], later: later?.items ?? []};
 }
 
 /** 调一次模型，拿回 JSON。供应商的差别全收在这里。 */
@@ -170,9 +190,11 @@ function openItems() {
 
 async function ask(braindump, lang) {
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
-  return toTurn(
-    await callJSON(buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver()})),
+  const current = currentPlan();
+  const raw = await callJSON(
+    buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver(), current}),
   );
+  return toTurn(raw, current);
 }
 
 /**

@@ -219,10 +219,12 @@ const DICT = {
   zh: {today:'今天', todo:'待办', ph:'说点什么，或者按右边说话', drop:'算了',
        hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
        quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
+       updated:'（这张卡更新了）',
        noMic:'这台设备不让网页用麦克风，直接打字吧。', none:'今天还没有事。'},
   en: {today:'Today', todo:'Todo', ph:'Type, or hold the mic', drop:'Never mind',
        hearing:'Listening…', taking:'Taking that in…', lead:"I'm keeping these for you today",
        quiet:"I'm holding these", remember:'I also remember', err:"Didn't work: ",
+       updated:'(card updated)',
        fallback:"I'm here.", noMic:"This device won't give the page a microphone. Type instead.",
        none:'Nothing yet today.'},
 };
@@ -292,17 +294,33 @@ function draw() {
 
 function drawChat(box) {
   let prev = null;
-  for (const m of day.messages ?? []) {
+  // 每一轮都带一张完整的卡，但只有最新那张是活的。
+  // 全部渲染出来就成了同一张卡的一摞副本，往下滚全是重复。
+  // 旧的收成一行「我更新了一下」——事情发生过，但不占地方。
+  const live = (day.messages ?? []).reduce(
+    (acc, m, i) => ((m.cards ?? []).some(c => c.type === 'tasks' || c.type === 'later') ? i : acc), -1);
+  for (const [idx, m] of (day.messages ?? []).entries()) {
     const t = el(`turn ${m.who}` + (m.who !== prev ? ' lead' : ''));
     if (m.who === 'today') {
       const av = document.createElement('img');
       av.className = 'mini'; av.src = '/today-tiger.png'; av.alt = '';
       t.appendChild(av);
     }
-    const tasks = (m.cards ?? []).find(c => c.type === 'tasks');
-    const later = (m.cards ?? []).find(c => c.type === 'later');
+    const hasCard = (m.cards ?? []).some(c => c.type === 'tasks' || c.type === 'later');
+    const isLive = idx === live;
+    const tasks = isLive ? (m.cards ?? []).find(c => c.type === 'tasks') : null;
+    const later = isLive ? (m.cards ?? []).find(c => c.type === 'later') : null;
     if (m.text) t.appendChild(bub(m.text, m.who));
     box.appendChild(t);
+    if (hasCard && !isLive) {
+      const q = el('turn today');
+      q.appendChild(el('mini','img'));
+      const n = el('bub'); n.classList.add('pending');
+      n.style.fontSize = '14.5px';
+      n.textContent = X.updated;
+      q.appendChild(n);
+      box.appendChild(q);
+    }
     // 任务卡单独一条消息——它也是 Today 说出来的
     if (tasks || later) {
       const c = el('turn today');

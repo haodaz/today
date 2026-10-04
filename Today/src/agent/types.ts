@@ -70,6 +70,8 @@ export type PlanRequest = {
   now: string;
   /** Today 已经记住的东西，作为上下文喂回去。 */
   memory?: Memory;
+  /** 今天已经排好的那张卡。有它时，模型是在改这张卡，不是重排一天。 */
+  current?: {focus: Task[]; later: string[]};
   /** 昨天没做完的。用来判断什么该放下，不是用来追责。 */
   carryOver?: string[];
   lang?: 'zh' | 'en';
