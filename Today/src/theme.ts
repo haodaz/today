@@ -1,5 +1,5 @@
 /**
- * Hearth 视觉系统
+ * Today 视觉系统
  *
  * 两条约束决定了这套配色：
  * 1) 这块屏幕全天开着。固定一块高亮浅色面板从早亮到晚，既刺眼也费电。
@@ -32,7 +32,7 @@ type Palette = {
   done: string;
 };
 
-/** 主色：炉火的暖陶色。全系统只有这一个彩色。 */
+/** 主色：一点暖。全系统只有这一个彩色——其余都是中性灰。 */
 const EMBER = '#C2703D';
 
 export const palettes: Record<Daypart, Palette> = {

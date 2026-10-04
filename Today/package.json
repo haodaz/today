@@ -1,10 +1,11 @@
 {
-  "name": "hearth",
+  "name": "today",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
     "expo": "~57.0.26",
     "expo-keep-awake": "~57.0.2",
+    "expo-localization": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "npm:react-native-tvos@0.86.3-0"

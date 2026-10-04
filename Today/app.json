@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Hearth",
-    "slug": "hearth",
+    "name": "Today",
+    "slug": "today",
     "version": "0.1.0",
     "orientation": "landscape",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
-      "package": "com.hearth.tv"
+      "package": "com.today.tv"
     },
     "plugins": [
       [
@@ -16,7 +16,8 @@
           "isTV": true,
           "showVerboseWarnings": false
         }
-      ]
+      ],
+      "expo-localization"
     ]
   }
 }

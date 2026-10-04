@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Today</title>
+<style>
+  /* 和电视端同一套：中性灰 + 一个暖色。
+     手机上这页只有一件事可做，所以不要导航、不要标题栏、不要任何别的入口。 */
+  :root{
+    --bg:#F5F5F4; --surface:#FFF; --border:#E4E4E2;
+    --text:#1C1D1C; --soft:#57595A; --faint:#95989A;
+    --ember:#C2703D; --ember-soft:#F7E9E0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#17161A; --surface:#1F1E23; --border:#2E2C32;
+      --text:#EDEAE6; --soft:#A7A29C; --faint:#6E6A66;
+      --ember:#D98B5A; --ember-soft:#3A2A20;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font:400 17px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    display:flex; flex-direction:column;
+    padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));
+  }
+  header{padding:8px 2px 18px}
+  h1{margin:0;font-size:15px;font-weight:600;letter-spacing:.14em;color:var(--faint)}
+  .lede{margin:10px 0 0;font-size:26px;font-weight:300;line-height:1.35;color:var(--text)}
+  .sub{margin:8px 0 0;font-size:14px;color:var(--faint)}
+
+  textarea{
+    flex:1; width:100%; min-height:200px; resize:none;
+    background:var(--surface); color:var(--text);
+    border:1px solid var(--border); border-radius:18px;
+    padding:18px; font:inherit; line-height:1.7;
+    outline:none; transition:border-color .15s;
+  }
+  textarea:focus{border-color:var(--ember)}
+  textarea::placeholder{color:var(--faint)}
+
+  .hint{
+    display:flex; align-items:center; gap:8px;
+    margin:12px 2px 0; font-size:14px; color:var(--faint);
+  }
+  .hint b{color:var(--soft);font-weight:500}
+
+  button{
+    margin-top:14px; width:100%; padding:17px;
+    background:var(--ember); color:#fff; border:0; border-radius:16px;
+    font:600 18px/1 inherit; letter-spacing:.02em;
+    transition:opacity .15s, transform .08s;
+  }
+  button:active{transform:scale(.985)}
+  button:disabled{opacity:.45}
+
+  /* 结果 */
+  #out{display:none; flex:1; overflow:auto}
+  .greet{font-size:24px;font-weight:300;line-height:1.45;margin:4px 2px 22px}
+  .task{
+    display:flex; gap:14px; align-items:flex-start;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:16px 18px; margin-bottom:10px;
+    position:relative; overflow:hidden;
+  }
+  .task.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ember)}
+  .dot{flex:0 0 auto;width:22px;height:22px;border:2px solid var(--border);border-radius:7px;margin-top:2px}
+  .t-label{font-size:18px;font-weight:500}
+  .t-note{font-size:14px;color:var(--faint);margin-top:3px}
+  .later-h{margin:26px 2px 8px;font-size:13px;letter-spacing:.1em;color:var(--faint)}
+  .later{margin:0 2px;color:var(--faint);font-size:15px;line-height:2}
+  .again{background:transparent;color:var(--soft);border:1px solid var(--border);margin-top:18px}
+  .err{color:#B3261E;font-size:15px;margin:12px 2px 0}
+</style>
+</head>
+<body>
+
+<div id="in" style="display:flex;flex-direction:column;flex:1">
+  <header>
+    <h1>TODAY</h1>
+    <p class="lede" id="lede"></p>
+    <p class="sub" id="sub"></p>
+  </header>
+
+  <textarea id="t" rows="8"></textarea>
+
+  <p class="hint"><span id="hintA"></span> <b>&#127908;</b> <span id="hintB"></span></p>
+
+  <button id="go"></button>
+  <p class="err" id="err" style="display:none"></p>
+</div>
+
+<div id="out">
+  <div class="greet" id="greet"></div>
+  <div id="tasks"></div>
+  <div id="laterWrap" style="display:none">
+    <div class="later-h" id="laterH"></div>
+    <div class="later" id="later"></div>
+  </div>
+  <button class="again" id="again"></button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* 两类读者：用它的妈妈（中文），和评审它的人（英文）。
+   英文不是机翻的影子，是平等的一份。 */
+const DICT = {
+  zh: {
+    lede: '今天有什么在你脑子里？',
+    sub: '不用整理，想到什么说什么。乱一点没关系。',
+    ph: '比如：明天要带孩子打疫苗，周三的表格还没交，家里牛奶没了，我妈昨天打电话我没接到……',
+    hintA: '按键盘上的', hintB: '直接说就行，不用打字。',
+    go: '说完了', going: '在理了…', again: '再说一次',
+    laterH: '今天不做', err: '没弄成：',
+  },
+  en: {
+    lede: "What's on your mind today?",
+    sub: "No need to sort it out. Say it however it comes.",
+    ph: 'For example: the kid has a vaccination tomorrow, the school form is due Wednesday, we are out of milk, my mother called and I missed it…',
+    hintA: 'Tap the', hintB: 'on your keyboard and just say it.',
+    go: "That's everything", going: 'Sorting it out…', again: 'Say it again',
+    laterH: 'Not today', err: "Didn't work: ",
+  },
+};
+const LANG = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+const X = DICT[LANG];
+document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+$('lede').textContent = X.lede;
+$('sub').textContent = X.sub;
+$('t').placeholder = X.ph;
+$('hintA').textContent = X.hintA;
+$('hintB').textContent = X.hintB;
+$('go').textContent = X.go;
+$('again').textContent = X.again;
+$('laterH').textContent = X.laterH;
+
+$('go').onclick = async () => {
+  const text = $('t').value.trim();
+  if (!text) { $('t').focus(); return; }
+  $('go').disabled = true;
+  $('go').textContent = X.going;
+  $('err').style.display = 'none';
+  try {
+    const r = await fetch('/braindump', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({braindump: text, lang: LANG}),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    render(await r.json());
+  } catch (e) {
+    $('err').textContent = X.err + String(e.message || e).slice(0, 180);
+    $('err').style.display = 'block';
+  } finally {
+    $('go').disabled = false;
+    $('go').textContent = X.go;
+  }
+};
+
+$('again').onclick = () => {
+  $('out').style.display = 'none';
+  $('in').style.display = 'flex';
+  $('t').value = '';
+  $('t').focus();
+};
+
+function render(plan) {
+  $('greet').textContent = plan.greeting || '';
+  $('tasks').innerHTML = (plan.focus || []).map(t => `
+    <div class="task${t.forHer ? ' her' : ''}">
+      <div class="dot"></div>
+      <div>
+        <div class="t-label"></div>
+        ${t.note ? '<div class="t-note"></div>' : ''}
+      </div>
+    </div>`).join('');
+  // 用 textContent 填，避免把模型输出当 HTML 解析
+  [...$('tasks').querySelectorAll('.task')].forEach((el, i) => {
+    el.querySelector('.t-label').textContent = plan.focus[i].label;
+    const n = el.querySelector('.t-note');
+    if (n) n.textContent = plan.focus[i].note;
+  });
+
+  const L = plan.later || [];
+  $('laterWrap').style.display = L.length ? 'block' : 'none';
+  $('later').textContent = L.join(' · ');
+
+  $('in').style.display = 'none';
+  $('out').style.display = 'flex';
+  $('out').style.flexDirection = 'column';
+}
+</script>
+</body>
+</html>

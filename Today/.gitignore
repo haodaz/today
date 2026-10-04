@@ -42,3 +42,6 @@ yarn-error.*
 
 # 密钥，永不进仓库
 .env.local
+
+# 本地数据（当天的 plan），不进仓库
+.data/

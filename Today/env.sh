@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Hearth 开发环境变量 —— 每次开新终端先 `source env.sh`
+# Today 开发环境变量 —— 每次开新终端先 `source env.sh`
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export JAVA_HOME="$HOME/Library/Android/jdk17/Contents/Home"
