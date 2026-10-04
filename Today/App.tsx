@@ -60,7 +60,8 @@ export default function App() {
           next.say +
           next.cards.flatMap(c =>
             c.type === 'tasks' ? c.items.map(i => i.label) :
-            c.type === 'later' ? c.items : c.items.map(i => i.text),
+            c.type === 'later' ? c.items :
+            c.type === 'memory' ? c.items.map(i => i.text) : [c.text],
           ).join('');
         if (/[\u4e00-\u9fa5]/.test(body)) setLang('zh');
       } catch {

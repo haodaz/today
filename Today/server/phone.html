@@ -111,6 +111,35 @@
     margin:10px 0 0;max-width:19em}
   .hi.pending{color:var(--faint)}
   .stat{display:flex;gap:7px;margin:14px 0 2px;flex-wrap:wrap;justify-content:center}
+  /* 卡牌：中间那张是活的，两边露一点。横向可滑。 */
+  .deck{
+    display:flex;gap:11px;margin:16px -20px 2px;padding:4px 20px 10px;
+    overflow-x:auto;scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .deck::-webkit-scrollbar{display:none}
+  .mode{
+    flex:0 0 auto;width:138px;scroll-snap-align:center;
+    border:1px solid var(--line);border-radius:20px;
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);
+    box-shadow:var(--shadow);
+    padding:15px 14px 13px;text-align:left;cursor:pointer;
+    transition:transform .14s, box-shadow .2s;
+  }
+  .mode:active{transform:scale(.97)}
+  .mode .ico{font-size:21px;line-height:1;margin-bottom:9px}
+  .mode .t{font-size:15.5px;font-weight:500;line-height:1.35}
+  .mode .s{font-size:10.5px;letter-spacing:.14em;color:var(--faint);
+    margin-top:7px;text-transform:uppercase}
+  /* 主模式：理今天。它是默认，所以用主色实底 */
+  .mode.key{
+    background:linear-gradient(150deg,var(--ember),var(--ember-deep));
+    border-color:transparent;color:#fff;
+    box-shadow:0 8px 22px rgba(107,92,231,.3);
+  }
+  .mode.key .s{color:rgba(255,255,255,.62)}
+
   .stat span{
     font-size:13px;color:var(--soft);background:var(--glass);
     -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
@@ -157,7 +186,12 @@
 
   /* 任务卡：也是 Today 说出来的一条消息，只是内容是可勾选的卡片 */
   .bub.card{max-width:88%;padding:14px 14px 10px}
-  .cardlead{font-size:14.5px;color:var(--soft);padding:0 4px 9px}
+  /* 状态提示：think/work 那种。不是一句话，所以不给气泡、不给头像。 */
+  .note{
+    font-size:13px;color:var(--faint);line-height:1.5;
+    padding:1px 4px 1px 48px;margin:-4px 0 10px;
+  }
+  .note b{font-weight:500;color:var(--soft)}
   .item{
     display:flex;gap:12px;align-items:flex-start;
     padding:11px 12px;border-radius:15px;margin-bottom:6px;
@@ -253,6 +287,9 @@
   <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
   <p class="hi pending" id="hi"></p>
   <div class="stat" id="stat"></div>
+  <!-- 快捷模式。不是必选项——她永远可以直接说话。
+       卡片只是把最常见的几种意图变成一次点击。 -->
+  <div class="deck" id="deck"></div>
 </div>
 
 <main id="scroll"></main>
@@ -290,9 +327,17 @@ const DICT = {
   zh: {today:'今天', todo:'待办', ph:'说点什么，或者按右边说话', drop:'算了',
        hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
        quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
-       updated:'（这张卡更新了）', history:'今天聊过的', noHistory:'还没有别的对话',
+       updated:'更新了', history:'今天聊过的', noHistory:'还没有别的对话',
+       cAdd:n=>`记上 ${n}`, cDone:n=>`${n} 做完了`,
+       cMoved:n=>`${n} 挪到以后`, cKept:n=>`收着 ${n}`,
        statLeft:n=>`今天还剩 ${n} 件`, statDone:'今天的事都做完了',
        statNone:'今天还没有事', statKept:n=>`先收着 ${n} 件`, statMem:n=>`记着 ${n} 条`,
+       modes:[
+         {k:'note',  ico:'🏷️', t:'先帮我记着',  s:'NOTE',  ph:'一句话，什么都行'},
+         {k:'',      ico:'🌤️', t:'帮我理今天',  s:'TODAY', ph:'想到什么说什么，不用整理', key:true},
+         {k:'write', ico:'✍️', t:'替我写句话',  s:'WRITE', ph:'要发给谁，说什么意思'},
+       ],
+       copy:'复制', copied:'复制好了',
        noMic:'这个浏览器不支持录音，直接打字吧。',
        insecure:'要从 https 地址打开才能用麦克风。现在这个是 http，浏览器不给权限。',
        denied:'麦克风被挡住了。到浏览器设置里允许这个网站用麦克风。',
@@ -303,9 +348,17 @@ const DICT = {
   en: {today:'Today', todo:'Todo', ph:'Type, or hold the mic', drop:'Never mind',
        hearing:'Listening…', taking:'Taking that in…', lead:"I'm keeping these for you today",
        quiet:"I'm holding these", remember:'I also remember', err:"Didn't work: ",
-       updated:'(card updated)', history:'Earlier today', noHistory:'No other conversations',
+       updated:'updated', history:'Earlier today', noHistory:'No other conversations',
+       cAdd:n=>`added ${n}`, cDone:n=>`${n} done`,
+       cMoved:n=>`moved ${n} off today`, cKept:n=>`holding ${n}`,
        statLeft:n=>`${n} left today`, statDone:'All done today',
        statNone:'Nothing yet today', statKept:n=>`${n} held`, statMem:n=>`${n} remembered`,
+       modes:[
+         {k:'note',  ico:'🏷️', t:'Just hold this', s:'NOTE',  ph:'One line, anything'},
+         {k:'',      ico:'🌤️', t:'Sort out today', s:'TODAY', ph:'Say it however it comes', key:true},
+         {k:'write', ico:'✍️', t:'Write it for me', s:'WRITE', ph:'Who it goes to, what you mean'},
+       ],
+       copy:'Copy', copied:'Copied',
        fallback:"I'm here.",
        noMic:"This browser can't record. Type instead.",
        insecure:'Open the https address to use the mic. This one is http, so the browser blocks it.',
@@ -376,6 +429,47 @@ function drawStat() {
   for (const b of bits) {
     const e = document.createElement('span'); e.textContent = b; $('stat').appendChild(e);
   }
+  drawDeck();
+}
+
+/** 当前模式。空 = 理今天。她直接打字也是空。 */
+let mode = '';
+
+function drawDeck() {
+  const d = $('deck');
+  d.innerHTML = '';
+  for (const m of X.modes) {
+    const c = el('mode' + (m.key ? ' key' : ''));
+    const i = el('ico'); i.textContent = m.ico;
+    const t = el('t'); t.textContent = m.t;
+    const s2 = el('s'); s2.textContent = m.s;
+    c.append(i, t, s2);
+    c.onclick = () => pick(m);
+    d.appendChild(c);
+  }
+  // 默认那张居中
+  requestAnimationFrame(() => {
+    const key = d.querySelector('.mode.key');
+    if (key) d.scrollLeft = key.offsetLeft - (d.clientWidth - key.clientWidth) / 2;
+  });
+}
+
+function pick(m) {
+  mode = m.k;
+  $('t').placeholder = m.ph;
+  $('t').focus();
+}
+
+/** 把一轮改动说成人话。界面上只有一行字的位置，所以每类最多说两件。 */
+function changeWords(ch) {
+  if (!ch) return [];
+  const two = a => (a ?? []).slice(0, 2).join('、');
+  const out = [];
+  if (ch.done?.length) out.push(X.cDone(two(ch.done)));
+  if (ch.added?.length) out.push(X.cAdd(two(ch.added)));
+  if (ch.moved?.length) out.push(X.cMoved(two(ch.moved)));
+  if (ch.kept?.length) out.push(X.cKept(two(ch.kept)));
+  return out;
 }
 
 /** 当天最后一张某类卡。 */
@@ -396,8 +490,14 @@ $('tabTodo').onclick = () => setTab('todo');
 /** 开一段新的。卡片不动——今天要做的事不随对话段落重置。 */
 $('fresh').onclick = async () => {
   try { day = await (await fetch('/new', {method:'POST'})).json(); } catch { return; }
-  setTab('today');
-  $('stage').classList.remove('small');
+  tab = 'today';
+  $('tabToday').classList.add('on');
+  $('tabTodo').classList.remove('on');
+  $('foot').hidden = false;
+  $('scroll').innerHTML = '';
+  // settle() 会按「她开过口没有」决定收不收起 launch，
+  // 新开一段时 messages 已清空，所以它自己会展开——先画再问候。
+  draw();
   await openLaunch();
 };
 
@@ -422,8 +522,11 @@ $('menu').onclick = async () => {
         const {messages} = await (await fetch(`/thread?i=${t.i}`)).json();
         day = {...day, messages};
         closeSheet();
-        setTab('today');
-        $('stage').classList.add('small');
+        tab = 'today';
+        $('tabToday').classList.add('on');
+        $('tabTodo').classList.remove('on');
+        $('foot').hidden = false;
+        draw();
       } catch {}
     };
     box.appendChild(e);
@@ -465,24 +568,47 @@ function drawChat(box) {
     const isLive = idx === live;
     const tasks = isLive ? (m.cards ?? []).find(c => c.type === 'tasks') : null;
     const later = isLive ? (m.cards ?? []).find(c => c.type === 'later') : null;
+    // 草稿不参与「只留最新一张」那条规则——
+    // 那条是为任务卡做的（每轮都重复整张卡），而每段草稿都是独立内容，
+    // 折叠掉就等于她写过的东西不见了。
+    const draft = (m.cards ?? []).find(c => c.type === 'draft');
     if (m.text) t.appendChild(bub(m.text, m.who));
     box.appendChild(t);
     if (hasCard && !isLive) {
-      const q = el('turn today');
-      q.appendChild(el('mini','img'));
-      const n = el('bub'); n.classList.add('pending');
-      n.style.fontSize = '14.5px';
-      n.textContent = X.updated;
-      q.appendChild(n);
-      box.appendChild(q);
+      const n = el('note');
+      n.innerHTML = '';
+      const parts = changeWords(m.changed);
+      if (parts.length) {
+        for (const [i, p] of parts.entries()) {
+          if (i) n.appendChild(document.createTextNode(' · '));
+          const b = document.createElement('b'); b.textContent = p;
+          n.appendChild(b);
+        }
+      } else n.textContent = X.updated;
+      box.appendChild(n);
+    }
+    // 草稿单独一条消息，紧跟在它说的那句话后面
+    if (draft) {
+      const c = el('turn today');
+      c.appendChild(el('mini','img'));
+      const b = el('bub card');
+      const d = el('draft'); d.textContent = draft.text;
+      const btn = el('copy', 'button'); btn.textContent = X.copy;
+      btn.onclick = async () => {
+        try { await navigator.clipboard.writeText(draft.text); btn.textContent = X.copied; }
+        catch { /* 没有剪贴板权限就算了，文字本身可以长按选 */ }
+      };
+      b.append(d, btn);
+      c.appendChild(b);
+      box.appendChild(c);
     }
     // 任务卡单独一条消息——它也是 Today 说出来的
     if (tasks || later) {
       const c = el('turn today');
       c.appendChild(el('mini','img'));
       const b = el('bub card');
-      const lead = el('cardlead'); lead.textContent = X.lead;
-      b.appendChild(lead);
+      // 卡片不自报家门——每次都挂一句「我帮你记着这些事」会僵。
+      // 它是什么，看一眼就知道。
       if (tasks) for (const i of tasks.items) b.appendChild(item(i));
       if (later?.items.length) {
         const ch = el('chips');
@@ -642,7 +768,9 @@ async function sendAudio(blob) {
 async function submit(text) {
   const r = await fetch('/braindump', {method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({braindump:text, lang:LANG})});
+    body: JSON.stringify({braindump:text, lang:LANG, mode: mode || undefined})});
+  // 模式是一次性的：说完就回到默认，不让她记着自己现在在哪个模式里
+  mode = ''; $('t').placeholder = X.ph;
   if (!r.ok) throw new Error(await r.text());
   day = await r.json();
   draw();

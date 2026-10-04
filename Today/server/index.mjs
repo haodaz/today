@@ -155,10 +155,42 @@ function toTurn(v, prev) {
     .map(String).map(s => s.trim()).filter(Boolean).slice(0, 8);
 
   const cards = [];
+  // 它替她写的那段话，直接可用——放最前面，她多半是为它来的
+  if (typeof o.draft === 'string' && o.draft.trim()) {
+    cards.push({type: 'draft', text: o.draft.trim()});
+  }
   if (tasks.length) cards.push({type: 'tasks', items: tasks});
   if (later.length) cards.push({type: 'later', items: later});
 
   return {turn: {say: typeof o.say === 'string' ? o.say : '', cards}, remember: o.remember ?? {}};
+}
+
+/**
+ * 比较前后两张卡，算出改了什么。
+ * 返回的是给人看的短语，不是 diff 结构——界面上只有一行字的位置。
+ */
+function diffPlan(before, cards) {
+  const after = cards.find(c => c.type === 'tasks')?.items ?? [];
+  const laterAfter = cards.find(c => c.type === 'later')?.items ?? [];
+  if (!before) return after.length ? {added: after.map(t => t.label)} : null;
+
+  const was = new Map(before.focus.map(t => [t.id, t]));
+  const now = new Map(after.map(t => [t.id, t]));
+  const out = {added: [], done: [], moved: [], kept: []};
+
+  for (const t of after) {
+    const o = was.get(t.id);
+    if (!o) out.added.push(t.label);
+    else if (t.done && !o.done) out.done.push(t.label);
+  }
+  for (const t of before.focus) {
+    if (!now.has(t.id)) out.moved.push(t.label);
+  }
+  const laterWas = new Set(before.later ?? []);
+  for (const l of laterAfter) {
+    if (!laterWas.has(l) && !out.moved.includes(l)) out.kept.push(l);
+  }
+  return Object.values(out).some(a => a.length) ? out : null;
 }
 
 /** 今天已经排好的那张卡，喂回给模型让它改而不是重排。 */
@@ -217,11 +249,11 @@ function openItems() {
   return (t?.card.items ?? []).filter(i => !i.done).map(i => i.label);
 }
 
-async function ask(braindump, lang) {
+async function ask(braindump, lang, mode) {
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
   const current = currentPlan();
   const raw = await callJSON(
-    buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver(), current}),
+    buildMessages({braindump, now, lang, mode, memory: loadMemory(), carryOver: carryOver(), current}),
   );
   return toTurn(raw, current);
 }
@@ -342,17 +374,24 @@ createServer(async (req, res) => {
 
   if (url.pathname === '/braindump' && req.method === 'POST') {
     try {
-      const {braindump, lang} = JSON.parse(await readBody(req));
+      const {braindump, lang, mode} = JSON.parse(await readBody(req));
       if (!braindump?.trim()) return json(res, 400, {error: '空的'});
       const L = lang === 'zh' ? 'zh' : 'en';
+      const M = ['note', 'write'].includes(mode) ? mode : undefined;
 
       // 她说的话也进对话流——这是一条对话，不是一次查询
-      appendMessage({who: 'her', text: braindump.trim()});
+      appendMessage({who: 'her', text: braindump.trim(), mode: M});
 
-      const {turn, remember} = await ask(braindump, L);
+      const before = currentPlan();
+      const {turn, remember} = await ask(braindump, L, M);
       const mem = mergeMemory(loadMemory(), remember);
       writeJSON(MEM_FILE, mem);
-      const day = appendMessage({who: 'today', text: turn.say, cards: turn.cards});
+      // 这一轮到底改了什么。界面上那行提示要说得出内容，
+      // 不能只说「更新了」——那等于没说。
+      const day = appendMessage({
+        who: 'today', text: turn.say, cards: turn.cards,
+        changed: diffPlan(before, turn.cards),
+      });
 
       const n = turn.cards.find(c => c.type === 'tasks')?.items.length ?? 0;
       const kept = mem.people.length + mem.rhythms.length + mem.carrying.length + mem.hers.length + mem.notes.length;

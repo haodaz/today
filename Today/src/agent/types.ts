@@ -20,13 +20,18 @@ export type Task = {
   done: boolean;
 };
 
+/** 她这次想干什么。空 = 理今天（默认）。 */
+export type Mode = 'note' | 'write';
+
 export type Card =
   /** 今天的事。可聚焦、可打勾。 */
   | {type: 'tasks'; items: Task[]}
   /** Today 先替她收着的。列出来让人放心，但不能操作——今天不用管。 */
   | {type: 'later'; items: string[]}
   /** Today 记住的。可以被她纠正，所以每条带 id。 */
-  | {type: 'memory'; items: {id: string; text: string}[]};
+  | {type: 'memory'; items: {id: string; text: string}[]}
+  /** 它替她写好的一段话，直接可用。 */
+  | {type: 'draft'; text: string};
 
 /** Today 的一次开口。 */
 export type Turn = {
@@ -75,4 +80,5 @@ export type PlanRequest = {
   /** 昨天没做完的。用来判断什么该放下，不是用来追责。 */
   carryOver?: string[];
   lang?: 'zh' | 'en';
+  mode?: Mode;
 };

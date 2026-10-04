@@ -16,6 +16,7 @@ const SHAPE = `{
   "say": "...",
   "focus": [{"id":"1","label":"...","note":"生活锚点","forHer":false,"done":false}],
   "later": ["...", "..."],
+  "draft": "只有 write 模式才填，别的模式留空",
   "remember": {
     "people":   [{"name":"...","who":"..."}],
     "rhythms":  ["..."],
@@ -253,8 +254,10 @@ function currentBlock(cur, zh) {
  */
 export function buildMessages(req) {
   const zh = (req.lang ?? 'zh') === 'zh';
+  const modes = zh ? MODE_ZH : MODE_EN;
   const parts = [
     zh ? `现在是 ${req.now}。` : `It is ${req.now}.`,
+    req.mode && modes[req.mode] ? modes[req.mode] : '',
     memoryBlock(req.memory, zh),
     currentBlock(req.current, zh),
     req.carryOver?.length
@@ -353,3 +356,64 @@ export function buildGreeting(ctx) {
     {role: 'user', content: bits.join('\n\n')},
   ];
 }
+
+/* ──────────────────────────────────────────────────────────────
+   模式。
+
+   她说的话有几种不同的意图，混成一种处理会出事：
+   「周三要交表格」只是想把事放下，但现在会触发整天重排——
+   这是个真 bug，不是功能缺失。
+
+   模式不是必选项。她永远可以直接说话（mode 为空 = 理今天）。
+   卡片只是把最常见的几种意图变成一次点击。
+   ────────────────────────────────────────────────────────────── */
+
+const MODE_ZH = {
+  note: `
+【这次她只是要你记一笔】
+她不是要你重排今天。她只是想把一件事放下，交给你。
+
+- 把它收进 later。只有当它明确是今天必须做的，才放进 focus。
+- 已有的那张卡**一件都不要动**：不改 label、不改顺序、不打勾、不挪走。
+- say 只说一句「我记着了」那个意思，不要复述清单，不要评价这件事要不要紧。
+`.trim(),
+
+  write: `
+【这次她要你替她写一段话】
+她要发给别人的消息、请假条、给老师的回复之类。写字对她是负担，你替她写。
+
+- 把写好的话放进 draft 字段，直接可用，不要加「您好」以外的客套，不要署名。
+- 长度跟着场景：给老师的消息两三句就够，别写成一封信。
+- 口吻是她的，不是你的：平实、客气、不卑不亢，不道歉过度。
+- 不确定的信息留空位让她填，比如「（孩子名字）」，不要编。
+- 已有的那张卡一件都不要动。
+- say 一句话，说你写了什么、或者问她要不要改哪里。
+`.trim(),
+};
+
+const MODE_EN = {
+  note: `
+[This time she just wants you to hold something]
+She is not asking you to replan today. She wants to put one thing down.
+
+- Put it in "later". Only move it into "focus" if it clearly has to happen today.
+- Do not touch the existing card at all: no relabelling, no reordering,
+  no ticking, no moving things off.
+- "say" means only "I've got it". Do not read the list back, do not judge
+  whether the thing matters.
+`.trim(),
+
+  write: `
+[This time she wants you to write something for her]
+A message to send someone — the teacher, family, a note to school.
+Writing is a cost for her; you do it.
+
+- Put the finished text in the "draft" field, ready to send. No filler greetings
+  beyond a plain hello, no sign-off.
+- Length fits the occasion: a note to a teacher is two or three sentences, not a letter.
+- The voice is hers, not yours: plain, courteous, not apologetic.
+- Leave a blank for anything you don't know, e.g. "(child's name)". Never invent it.
+- Do not touch the existing card.
+- "say" is one sentence: what you wrote, or what you need from her to finish it.
+`.trim(),
+};
