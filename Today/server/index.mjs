@@ -41,7 +41,7 @@ const PROVIDERS = {
   // 凭证按 AWS 默认链解析，不用 apiKey 字段。
   bedrock: {bedrock: true, model: BEDROCK_DEFAULT},
   openai: {baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-luna', key: 'OPENAI_API_KEY'},
-  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: 'nvidia/nvidia-nemotron-3-nano-30b-a3b', key: 'NEBIUS_API_KEY'},
+  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B', key: 'NEBIUS_API_KEY'},
   dashscope: {baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', key: 'DASHSCOPE_API_KEY'},
 };
 const P = PROVIDERS[process.env.PROVIDER || 'openai'];

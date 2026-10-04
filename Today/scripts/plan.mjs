@@ -26,7 +26,7 @@ const {buildMessages} = await import(new URL('prompt.js', SRC).href);
 
 const PRESETS = {
   openai: {baseUrl: 'https://api.openai.com/v1', model: process.env.MODEL || 'gpt-5.6-luna', key: 'OPENAI_API_KEY'},
-  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: process.env.MODEL || 'nvidia/nvidia-nemotron-3-nano-30b-a3b', key: 'NEBIUS_API_KEY'},
+  nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: process.env.MODEL || 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B', key: 'NEBIUS_API_KEY'},
   dashscope: {baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: process.env.MODEL || 'qwen-plus', key: 'DASHSCOPE_API_KEY'},
   openrouter: {baseUrl: 'https://openrouter.ai/api/v1', model: process.env.MODEL || 'anthropic/claude-sonnet-4.5', key: 'OPENROUTER_API_KEY'},
 };
