@@ -8,29 +8,28 @@
 <title>Today</title>
 <style>
   /*
-   * 手机端按应用来做，不是网页。
-   * 语言取自同类可信赖产品（蚂蚁阿福这一类）：柔和渐变底、角色在场、
-   * 毛玻璃卡片、底部常驻的输入条。
+   * 对话是最外层。
    *
-   * 底部那条是关键：它一直在，但很薄、很安静。
-   * 「点一下才出来一个大白框」是在索取；一条安静的输入条是在等着。
+   * Today 说的每一句是一个气泡；今天要做的那几件也是它说出来的，
+   * 只是那条消息的内容是一张可勾选的卡片，而不是一段文字。
+   * 卡片不是另一个区域，是消息的一种。
+   *
+   * 两个 tab 沉在页面里——没有彩色导航条。
+   * 彩色导航条是工具应用的样子，这个东西是陪着你的。
    */
   :root{
     --ember:#C2703D; --ember-deep:#A85C2E; --ember-tint:#F6E3D5;
     --ink:#231E1A; --soft:#6B625B; --faint:#A39A92;
-    --glass:rgba(255,255,255,.78);
-    --line:rgba(194,112,61,.14);
-    --shadow:0 8px 28px rgba(194,112,61,.10);
-    --shadow-lift:0 12px 34px rgba(194,112,61,.16);
+    --glass:rgba(255,255,255,.80);
+    --line:rgba(194,112,61,.13);
+    --shadow:0 8px 26px rgba(194,112,61,.10);
   }
   @media (prefers-color-scheme: dark){
     :root{
       --ember:#E09A68; --ember-deep:#C2703D; --ember-tint:#3A2A1F;
       --ink:#F2EDE8; --soft:#B3A99F; --faint:#7D736B;
-      --glass:rgba(38,33,30,.72);
-      --line:rgba(224,154,104,.16);
-      --shadow:0 8px 28px rgba(0,0,0,.34);
-      --shadow-lift:0 12px 34px rgba(0,0,0,.44);
+      --glass:rgba(40,35,31,.74); --line:rgba(224,154,104,.15);
+      --shadow:0 8px 26px rgba(0,0,0,.34);
     }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -39,138 +38,176 @@
     color:var(--ink);
     font:400 17px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;
     display:flex;flex-direction:column;
-    /* 柔和渐变底，不是一块平灰 */
     background:
-      radial-gradient(120% 60% at 85% 0%, rgba(194,112,61,.13), transparent 60%),
-      radial-gradient(90% 50% at 0% 12%, rgba(194,112,61,.07), transparent 55%),
-      linear-gradient(170deg,#FBF4EE 0%,#F6F1EC 46%,#F3F1EE 100%);
+      radial-gradient(120% 56% at 80% 0%, rgba(194,112,61,.14), transparent 60%),
+      radial-gradient(90% 44% at 0% 14%, rgba(194,112,61,.06), transparent 55%),
+      linear-gradient(170deg,#FBF4EE 0%,#F7F2EC 48%,#F3F1EE 100%);
   }
   @media (prefers-color-scheme: dark){
     body{background:
-      radial-gradient(120% 60% at 85% 0%, rgba(224,154,104,.12), transparent 60%),
-      linear-gradient(170deg,#1C1816 0%,#191715 100%);}
+      radial-gradient(120% 56% at 80% 0%, rgba(224,154,104,.12), transparent 60%),
+      linear-gradient(170deg,#1C1816,#191715);}
   }
 
-  /* ── Today 在场 ───────────────────────────── */
-  header{
-    padding:max(14px,env(safe-area-inset-top)) 20px 4px;
-    display:flex;gap:14px;align-items:flex-end;flex:0 0 auto;
+  /* ── 顶部：两个 tab，沉在页面里，没有导航条 ── */
+  nav{
+    flex:0 0 auto;display:flex;gap:22px;align-items:baseline;
+    padding:max(14px,env(safe-area-inset-top)) 22px 2px;
   }
+  nav button{
+    border:0;background:transparent;padding:4px 0;cursor:pointer;
+    font:600 20px/1 inherit;letter-spacing:.01em;
+    color:var(--faint);transition:color .2s;
+  }
+  nav button.on{color:var(--ink)}
+  nav .dot{
+    width:5px;height:5px;border-radius:50%;background:var(--ember);
+    align-self:center;opacity:0;transition:opacity .25s;
+  }
+  nav .dot.show{opacity:1}
+
+  /* ── 形象：启动时顶部居中 ── */
+  .stage{
+    flex:0 0 auto;display:grid;place-items:center;
+    padding:2px 0 0;transition:height .5s cubic-bezier(.3,.8,.3,1), opacity .4s;
+    overflow:hidden;height:172px;
+  }
+  .stage.small{height:0;opacity:0;padding:0}
   .tiger{
-    width:118px;height:auto;flex:0 0 auto;margin-bottom:-6px;
-    filter:drop-shadow(0 10px 18px rgba(194,112,61,.20));
+    width:150px;height:auto;
+    filter:drop-shadow(0 12px 22px rgba(194,112,61,.20));
     transition:opacity .3s, transform .3s;
   }
   .tiger.thinking{opacity:.55;transform:translateY(2px) scale(.98)}
-  .hello{flex:1;padding-bottom:10px;min-width:0}
-  .brand{font-size:11px;letter-spacing:.22em;color:var(--faint);font-weight:600;margin:0 0 5px}
-  .say{font-size:21px;font-weight:400;line-height:1.42;margin:0;letter-spacing:.01em}
-  .say.pending{color:var(--faint)}
 
-  /* ── 卡片区 ───────────────────────────────── */
-  main{flex:1;overflow-y:auto;padding:14px 20px 8px;-webkit-overflow-scrolling:touch}
-  .card{
+  /* ── 对话流 ── */
+  main{flex:1;overflow-y:auto;padding:6px 18px 10px;-webkit-overflow-scrolling:touch}
+  .turn{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;
+    animation:rise .34s cubic-bezier(.2,.7,.3,1) backwards}
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}}
+  .turn.her{justify-content:flex-end}
+  .mini{
+    width:34px;height:34px;flex:0 0 auto;border-radius:50%;
+    /* 半身图的头在最上面，头像窗口要贴顶才裁到脸 */
+    object-fit:cover;object-position:50% 2%;
+    background:var(--ember-tint);margin-bottom:2px;
+    opacity:0;transition:opacity .2s;
+  }
+  .turn.lead .mini{opacity:1}
+
+  .bub{
+    max-width:80%;padding:13px 17px;border-radius:21px;
     background:var(--glass);
     -webkit-backdrop-filter:blur(20px) saturate(1.6);
     backdrop-filter:blur(20px) saturate(1.6);
-    border:1px solid var(--line);
-    border-radius:24px;
-    padding:17px 19px;margin-bottom:11px;
-    box-shadow:var(--shadow);
-    display:flex;gap:14px;align-items:flex-start;
-    position:relative;overflow:hidden;
-    animation:rise .34s cubic-bezier(.2,.7,.3,1) backwards;
+    border:1px solid var(--line);box-shadow:var(--shadow);
+    font-size:16.5px;line-height:1.52;
   }
-  .card:nth-child(2){animation-delay:.05s}
-  .card:nth-child(3){animation-delay:.1s}
-  @keyframes rise{from{opacity:0;transform:translateY(10px)}}
-  /* 「给她自己的」那件：一道暖色边。不写字，说出来就变成施舍了。 */
-  .card.her{box-shadow:var(--shadow-lift)}
-  .card.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  .turn.today .bub{border-bottom-left-radius:8px}
+  .turn.her .bub{
+    border-bottom-right-radius:8px;
+    background:linear-gradient(145deg,var(--ember),var(--ember-deep));
+    color:#fff;border-color:transparent;
+    box-shadow:0 8px 22px rgba(194,112,61,.26);
+  }
+  .bub.pending{color:var(--faint)}
+
+  /* 任务卡：也是 Today 说出来的一条消息，只是内容是可勾选的卡片 */
+  .bub.card{max-width:88%;padding:14px 14px 10px}
+  .cardlead{font-size:14.5px;color:var(--soft);padding:0 4px 9px}
+  .item{
+    display:flex;gap:12px;align-items:flex-start;
+    padding:11px 12px;border-radius:15px;margin-bottom:6px;
+    background:rgba(255,255,255,.52);border:1px solid var(--line);
+    position:relative;overflow:hidden;transition:background .18s;
+  }
+  @media (prefers-color-scheme: dark){ .item{background:rgba(255,255,255,.05)} }
+  .item:active{background:var(--ember-tint)}
+  .item.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
     background:linear-gradient(180deg,var(--ember),var(--ember-deep))}
-  .box{flex:0 0 auto;width:23px;height:23px;border:2px solid var(--line);
-    border-radius:8px;margin-top:3px;background:rgba(255,255,255,.4)}
-  .lab{font-size:17.5px;font-weight:500;letter-spacing:.01em}
-  .sub{font-size:13.5px;color:var(--faint);margin-top:3px}
-
-  .quiet-h{margin:18px 4px 8px;font-size:11px;letter-spacing:.16em;color:var(--faint);font-weight:600}
-  .quiet{display:flex;flex-wrap:wrap;gap:7px;margin:0 2px}
-  .chip{
-    font-size:13.5px;color:var(--soft);
-    background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-    border:1px solid var(--line);border-radius:999px;padding:6px 13px;
+  .tick{
+    flex:0 0 auto;width:21px;height:21px;border:2px solid var(--line);
+    border-radius:7px;margin-top:2px;display:grid;place-items:center;
+    transition:background .18s,border-color .18s;
   }
+  .item.done .tick{background:var(--ember);border-color:var(--ember)}
+  .tick svg{width:12px;height:12px;stroke:#fff;stroke-width:3.2;fill:none;
+    opacity:0;transition:opacity .18s}
+  .item.done .tick svg{opacity:1}
+  .lab{font-size:16px;font-weight:500}
+  .item.done .lab{color:var(--faint);text-decoration:line-through}
+  .sub{font-size:13px;color:var(--faint);margin-top:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 2px}
+  .chip{font-size:13px;color:var(--soft);background:rgba(255,255,255,.5);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  @media (prefers-color-scheme: dark){ .chip{background:rgba(255,255,255,.05)} }
 
-  /* ── 底部常驻输入条 ───────────────────────── */
-  footer{
-    flex:0 0 auto;padding:8px 16px max(14px,env(safe-area-inset-bottom));
+  /* ── todo 面 ── */
+  .pane{padding:4px 4px 10px}
+  .ph{margin:16px 4px 9px;font-size:11.5px;letter-spacing:.16em;color:var(--faint);font-weight:600}
+  .ph:first-child{margin-top:4px}
+  .flat{
+    background:var(--glass);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border:1px solid var(--line);border-radius:19px;padding:6px;box-shadow:var(--shadow);
   }
+  .empty{color:var(--faint);font-size:15px;padding:12px 6px}
+
+  /* ── 底部输入条 ── */
+  footer{flex:0 0 auto;padding:6px 16px max(13px,env(safe-area-inset-bottom))}
   .bar{
-    display:flex;align-items:center;gap:10px;
+    display:flex;align-items:center;gap:9px;
     background:var(--glass);
-    -webkit-backdrop-filter:blur(24px) saturate(1.7);
-    backdrop-filter:blur(24px) saturate(1.7);
+    -webkit-backdrop-filter:blur(24px) saturate(1.7);backdrop-filter:blur(24px) saturate(1.7);
     border:1px solid var(--line);border-radius:999px;
-    padding:7px 7px 7px 20px;box-shadow:var(--shadow);
+    padding:6px 6px 6px 19px;box-shadow:var(--shadow);
   }
-  .bar input{
-    flex:1;min-width:0;border:0;background:transparent;outline:none;
-    font:inherit;font-size:16px;color:var(--ink);padding:9px 0;
-  }
+  .bar input{flex:1;min-width:0;border:0;background:transparent;outline:none;
+    font:inherit;font-size:16px;color:var(--ink);padding:9px 0}
   .bar input::placeholder{color:var(--faint)}
   .mic{
-    flex:0 0 auto;width:44px;height:44px;border:0;border-radius:50%;
+    flex:0 0 auto;width:42px;height:42px;border:0;border-radius:50%;
     background:linear-gradient(145deg,var(--ember),var(--ember-deep));
     color:#fff;display:grid;place-items:center;
-    box-shadow:0 4px 14px rgba(194,112,61,.34);
-    transition:transform .12s, box-shadow .2s;
+    box-shadow:0 4px 13px rgba(194,112,61,.32);transition:transform .12s;
   }
   .mic:active{transform:scale(.93)}
   .mic.on{animation:pulse 1.4s ease-in-out infinite}
-  @keyframes pulse{
-    0%,100%{box-shadow:0 4px 14px rgba(194,112,61,.34)}
-    50%{box-shadow:0 4px 14px rgba(194,112,61,.34),0 0 0 11px rgba(194,112,61,.12)}
-  }
-  .mic svg{width:21px;height:21px;fill:currentColor}
-
-  /* 录音态把输入条换成电平条 */
+  @keyframes pulse{0%,100%{box-shadow:0 4px 13px rgba(194,112,61,.32)}
+    50%{box-shadow:0 4px 13px rgba(194,112,61,.32),0 0 0 10px rgba(194,112,61,.11)}}
+  .mic svg{width:20px;height:20px;fill:currentColor}
   .level{flex:1;height:5px;border-radius:3px;background:var(--ember-tint);overflow:hidden;margin:0 2px}
   .level span{display:block;height:100%;width:0;background:var(--ember);transition:width .07s linear}
-  .ghost{flex:0 0 auto;border:0;background:transparent;color:var(--soft);
-    font:inherit;font-size:15px;padding:10px 8px}
-
-  .err{margin:8px 20px 0;font-size:14px;color:#B3261E}
+  .ghost{flex:0 0 auto;border:0;background:transparent;color:var(--soft);font:inherit;font-size:15px;padding:10px 6px}
+  .err{margin:6px 20px 0;font-size:14px;color:#B3261E}
   [hidden]{display:none !important}
 </style>
 </head>
 <body>
 
-<header>
-  <!-- 捧着的那只：两爪收在胸前、目光微微向下，不盯着人。
-       这个姿势本身就是「我替你记着」。 -->
-  <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
-  <div class="hello">
-    <p class="brand">TODAY</p>
-    <p class="say pending" id="say"></p>
-  </div>
-</header>
+<nav>
+  <button id="tabToday" class="on">Today</button>
+  <span class="dot" id="dot"></span>
+  <button id="tabTodo">Todo</button>
+</nav>
 
-<main id="cards"></main>
+<div class="stage" id="stage">
+  <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
+</div>
+
+<main id="scroll"></main>
 <p class="err" id="err" hidden></p>
 
-<footer>
-  <!-- 常态：一条安静的输入条。一直在，但不索取。 -->
+<footer id="foot">
   <div class="bar" id="bar">
     <input id="t" autocomplete="off">
-    <button class="mic" id="mic" aria-label="说">
+    <button class="mic" id="mic" aria-label="say">
       <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
     </button>
   </div>
-  <!-- 录音态 -->
   <div class="bar" id="recbar" hidden>
     <div class="level"><span id="lv"></span></div>
     <button class="ghost" id="drop"></button>
-    <button class="mic on" id="stop" aria-label="说完了">
+    <button class="mic on" id="stop" aria-label="done">
       <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></svg>
     </button>
   </div>
@@ -179,60 +216,193 @@
 <script>
 const $ = id => document.getElementById(id);
 const DICT = {
-  zh: {ph:'说点什么，或者按右边说话', drop:'算了', hearing:'我在听…', taking:'我记一下…',
-       quiet:'我先收着', err:'没弄成：', fallback:'我在。',
-       noMic:'这台设备不让网页用麦克风，直接打字吧。'},
-  en: {ph:'Type, or hold the mic', drop:'Never mind', hearing:'Listening…', taking:'Taking that in…',
-       quiet:"I'm keeping these", err:"Didn't work: ", fallback:"I'm here.",
-       noMic:"This device won't give the page a microphone. Type instead."},
+  zh: {today:'今天', todo:'待办', ph:'说点什么，或者按右边说话', drop:'算了',
+       hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
+       quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
+       noMic:'这台设备不让网页用麦克风，直接打字吧。', none:'今天还没有事。'},
+  en: {today:'Today', todo:'Todo', ph:'Type, or hold the mic', drop:'Never mind',
+       hearing:'Listening…', taking:'Taking that in…', lead:"I'm keeping these for you today",
+       quiet:"I'm holding these", remember:'I also remember', err:"Didn't work: ",
+       fallback:"I'm here.", noMic:"This device won't give the page a microphone. Type instead.",
+       none:'Nothing yet today.'},
 };
-const LANG = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
-const X = DICT[LANG];
+/* UI 语言默认跟设备，但如果当天的对话已经是中文，就跟着对话走——
+   卡片引导语是英文、里面的事情是中文，看着是两个人在说话。 */
+let LANG = (navigator.language||'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+let X = DICT[LANG];
+const relang = () => {
+  const text = (day.messages ?? []).map(m => m.text || '').join('');
+  const next = /[\u4e00-\u9fa5]/.test(text) ? 'zh' : LANG;
+  if (next === LANG) return;
+  LANG = next; X = DICT[LANG];
+  document.documentElement.lang = 'zh-CN';
+  $('tabToday').textContent = X.today;
+  $('tabTodo').textContent = X.todo;
+  $('t').placeholder = X.ph;
+  $('drop').textContent = X.drop;
+};
 document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+$('tabToday').textContent = X.today;
+$('tabTodo').textContent = X.todo;
 $('t').placeholder = X.ph;
 $('drop').textContent = X.drop;
 
-const setSay = (t, pending) => {
-  $('say').textContent = t;
-  $('say').classList.toggle('pending', !!pending);
-};
+let day = {messages: [], memory: null};
+let tab = 'today';
 const thinking = on => $('tiger').classList.toggle('thinking', on);
 const showErr = m => { $('err').textContent = X.err + String(m).slice(0,150); $('err').hidden = false; };
+const el = (cls, tag='div') => { const e=document.createElement(tag); e.className=cls; return e; };
 
-/* Today 先开口。这句话是它生成的，用它记得的东西说一句只有它能说的话。 */
+/* 开场：形象在顶部居中，Today 先说一句只有它能说的话。
+   她一旦开口，形象收起来——舞台让给对话。 */
 (async () => {
-  try {
-    const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
-    setSay(say || X.fallback);
-  } catch { setSay(X.fallback); }
-  try { render(await (await fetch('/turn')).json(), true); } catch {}
+  try { day = await (await fetch('/day')).json(); } catch {}
+  draw();
+  if (!day.messages?.length) {
+    try {
+      const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
+      bubble('today', say || X.fallback);
+    } catch { bubble('today', X.fallback); }
+  }
 })();
 
-/* ── 录音 ─────────────────────────────────────
-   不依赖键盘的听写键：很多手机没有那个键。
-   getUserMedia 要安全上下文，所以这页必须走 HTTPS。
-   ──────────────────────────────────────────── */
-let rec = null, chunks = [], meter = null;
+function setTab(next) {
+  tab = next;
+  $('tabToday').classList.toggle('on', next === 'today');
+  $('tabTodo').classList.toggle('on', next === 'todo');
+  $('dot').classList.toggle('show', true);
+  $('foot').hidden = next !== 'today';
+  draw();
+}
+$('tabToday').onclick = () => setTab('today');
+$('tabTodo').onclick = () => setTab('todo');
 
+/** 她说过话之后，形象收起，把地方让给对话。 */
+const settle = () => $('stage').classList.toggle('small',
+  tab === 'todo' || (day.messages ?? []).some(m => m.who === 'her'));
+
+function draw() {
+  relang();
+  settle();
+  const box = $('scroll');
+  box.innerHTML = '';
+  tab === 'today' ? drawChat(box) : drawTodo(box);
+  box.scrollTop = box.scrollHeight;
+}
+
+function drawChat(box) {
+  let prev = null;
+  for (const m of day.messages ?? []) {
+    const t = el(`turn ${m.who}` + (m.who !== prev ? ' lead' : ''));
+    if (m.who === 'today') {
+      const av = document.createElement('img');
+      av.className = 'mini'; av.src = '/today-tiger.png'; av.alt = '';
+      t.appendChild(av);
+    }
+    const tasks = (m.cards ?? []).find(c => c.type === 'tasks');
+    const later = (m.cards ?? []).find(c => c.type === 'later');
+    if (m.text) t.appendChild(bub(m.text, m.who));
+    box.appendChild(t);
+    // 任务卡单独一条消息——它也是 Today 说出来的
+    if (tasks || later) {
+      const c = el('turn today');
+      c.appendChild(el('mini','img'));
+      const b = el('bub card');
+      const lead = el('cardlead'); lead.textContent = X.lead;
+      b.appendChild(lead);
+      if (tasks) for (const i of tasks.items) b.appendChild(item(i));
+      if (later?.items.length) {
+        const ch = el('chips');
+        for (const s of later.items) { const p = el('chip','span'); p.textContent = s; ch.appendChild(p); }
+        b.appendChild(ch);
+      }
+      c.appendChild(b);
+      box.appendChild(c);
+    }
+    prev = m.who;
+  }
+}
+
+function drawTodo(box) {
+  const p = el('pane');
+  const tasks = [...(day.messages ?? [])].reverse()
+    .flatMap(m => m.cards ?? []).find(c => c.type === 'tasks');
+  const later = [...(day.messages ?? [])].reverse()
+    .flatMap(m => m.cards ?? []).find(c => c.type === 'later');
+
+  const head = s => { const h = el('ph'); h.textContent = s; p.appendChild(h); };
+  head(X.today);
+  const f = el('flat');
+  if (tasks?.items.length) for (const i of tasks.items) f.appendChild(item(i));
+  else { const e = el('empty'); e.textContent = X.none; f.appendChild(e); }
+  p.appendChild(f);
+
+  if (later?.items.length) {
+    head(X.quiet);
+    const ch = el('chips');
+    for (const s of later.items) { const c = el('chip','span'); c.textContent = s; ch.appendChild(c); }
+    p.appendChild(ch);
+  }
+  if (day.memory?.items?.length) {
+    head(X.remember);
+    const ch = el('chips');
+    for (const m of day.memory.items) { const c = el('chip','span'); c.textContent = m.text; ch.appendChild(c); }
+    p.appendChild(ch);
+  }
+  box.appendChild(p);
+}
+
+function bub(text, who) {
+  const b = el('bub');
+  b.textContent = text;
+  return b;
+}
+function item(i) {
+  const e = el('item' + (i.forHer ? ' her' : '') + (i.done ? ' done' : ''));
+  const tk = el('tick');
+  tk.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>';
+  const col = el(''); col.style.minWidth = '0';
+  const l = el('lab'); l.textContent = i.label; col.appendChild(l);
+  if (i.note) { const s = el('sub'); s.textContent = i.note; col.appendChild(s); }
+  e.append(tk, col);
+  e.onclick = async () => {
+    e.classList.toggle('done');
+    try { day = await (await fetch('/toggle', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: i.id})})).json(); }
+    catch {}
+  };
+  return e;
+}
+
+/** 临时气泡（开场白、状态），还没进对话流的那种。 */
+function bubble(who, text, pending) {
+  const t = el(`turn ${who} lead`);
+  if (who === 'today') { const a = el('mini','img'); a.src = '/today-tiger.png'; t.appendChild(a); }
+  const b = bub(text, who);
+  if (pending) b.classList.add('pending');
+  t.appendChild(b);
+  $('scroll').appendChild(t);
+  $('scroll').scrollTop = $('scroll').scrollHeight;
+  return b;
+}
+
+/* ── 录音 ──────────────────────────────────── */
+let rec = null, chunks = [], meter = null;
 $('mic').onclick = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
     const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4']
       .find(m => window.MediaRecorder?.isTypeSupported?.(m));
-    rec = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+    rec = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined);
     chunks = [];
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
-      meter?.ctx.close().catch(()=>{}); meter = null;
-      $('lv').style.width = '0%';
+      meter?.ctx.close().catch(()=>{}); meter = null; $('lv').style.width = '0%';
       sendAudio(new Blob(chunks, {type: rec.mimeType || 'audio/webm'}));
     };
-    rec.start();
-    level(stream);
-    $('bar').hidden = true; $('recbar').hidden = false;
-    $('err').hidden = true;
-    setSay(X.hearing, true);
+    rec.start(); level(stream);
+    $('bar').hidden = true; $('recbar').hidden = false; $('err').hidden = true;
   } catch { showErr(X.noMic); $('t').focus(); }
 };
 $('stop').onclick = () => rec?.state === 'recording' && rec.stop();
@@ -240,91 +410,58 @@ $('drop').onclick = () => {
   if (rec?.state === 'recording') { chunks = []; rec.onstop = null; rec.stop(); }
   meter?.ctx.close().catch(()=>{}); meter = null; rec = null;
   $('recbar').hidden = true; $('bar').hidden = false;
-  setSay('');
 };
-
-/** 电平条。只是让她知道「它确实在收」，不画波形。 */
 function level(stream) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
     const an = ctx.createAnalyser(); an.fftSize = 256;
     ctx.createMediaStreamSource(stream).connect(an);
     const buf = new Uint8Array(an.frequencyBinCount);
     meter = {ctx};
-    (function tick(){
-      if (!meter) return;
+    (function tick(){ if (!meter) return;
       an.getByteTimeDomainData(buf);
-      let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v-128));
-      $('lv').style.width = Math.min(100, (peak/58)*100) + '%';
+      let pk = 0; for (const v of buf) pk = Math.max(pk, Math.abs(v-128));
+      $('lv').style.width = Math.min(100,(pk/58)*100) + '%';
       requestAnimationFrame(tick);
     })();
   } catch {}
 }
-
 async function sendAudio(blob) {
   $('recbar').hidden = true; $('bar').hidden = false;
-  setSay(X.taking, true); thinking(true);
+  const note = bubble('today', X.taking, true); thinking(true);
   try {
-    const r = await fetch('/transcribe', {method:'POST', headers:{'Content-Type': blob.type||'audio/webm'}, body: blob});
+    const r = await fetch('/transcribe', {method:'POST',
+      headers:{'Content-Type': blob.type||'audio/webm'}, body: blob});
     if (!r.ok) throw new Error(await r.text());
     const {text} = await r.json();
     if (!text) throw new Error('没听清');
-    render(await submit(text));
-  } catch (e) { showErr(e.message || e); setSay(''); }
+    note.remove();
+    await submit(text);
+  } catch (e) { note.remove(); showErr(e.message||e); }
   finally { thinking(false); rec = null; }
 }
 
-/** 说的和打的走同一条路：到这里都只是一段文字。 */
-const submit = async text => {
-  const r = await fetch('/braindump', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({braindump: text, lang: LANG}),
-  });
+async function submit(text) {
+  const r = await fetch('/braindump', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({braindump:text, lang:LANG})});
   if (!r.ok) throw new Error(await r.text());
-  return r.json();
-};
+  day = await r.json();
+  draw();
+}
 
 $('t').addEventListener('keydown', async e => {
   if (e.key !== 'Enter') return;
   const text = $('t').value.trim();
   if (!text) return;
   $('t').value = ''; $('t').blur();
-  setSay(X.taking, true); thinking(true); $('err').hidden = true;
-  try { render(await submit(text)); }
-  catch (err) { showErr(err.message || err); setSay(''); }
+  bubble('her', text);
+  const note = bubble('today', X.taking, true);
+  thinking(true); $('err').hidden = true;
+  try { await submit(text); }
+  catch (err) { note.remove(); showErr(err.message||err); }
   finally { thinking(false); }
 });
-
-function render(turn, quiet) {
-  if (!quiet) setSay(turn.say || '');
-  const box = $('cards');
-  box.innerHTML = '';
-  for (const c of turn.cards || []) {
-    if (c.type === 'tasks') {
-      for (const t of c.items) {
-        const el = document.createElement('div');
-        el.className = 'card' + (t.forHer ? ' her' : '');
-        el.innerHTML = '<div class="box"></div><div style="min-width:0"><div class="lab"></div>' +
-                       (t.note ? '<div class="sub"></div>' : '') + '</div>';
-        // textContent 填值，不把模型输出当 HTML 解析
-        el.querySelector('.lab').textContent = t.label;
-        if (t.note) el.querySelector('.sub').textContent = t.note;
-        box.appendChild(el);
-      }
-    } else if (c.type === 'later' && c.items.length) {
-      const h = document.createElement('div');
-      h.className = 'quiet-h'; h.textContent = X.quiet;
-      const wrap = document.createElement('div');
-      wrap.className = 'quiet';
-      for (const s of c.items) {
-        const chip = document.createElement('span');
-        chip.className = 'chip'; chip.textContent = s;
-        wrap.appendChild(chip);
-      }
-      box.append(h, wrap);
-    }
-  }
-}
 </script>
 </body>
 </html>

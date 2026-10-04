@@ -58,15 +58,41 @@ const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
 
 const EMPTY_MEMORY = {people: [], rhythms: [], carrying: [], hers: [], notes: [], updatedAt: ''};
 const loadMemory = () => readJSON(MEM_FILE, EMPTY_MEMORY);
-const loadDay = (k = dayKey()) => readJSON(dayFile(k), null);
+
+/**
+ * 一天的文件现在存的是整条对话，不是一次 turn。
+ *   messages: [{who:'today'|'her', text, cards?, at}]
+ * 对话是最外层——卡片是 Today 说出来的一种消息，不是另一个区域。
+ */
+const loadDay = (k = dayKey()) => {
+  const d = readJSON(dayFile(k), null);
+  if (!d) return null;
+  // 兼容早期只存一次 turn 的文件
+  if (!d.messages) return {date: d.date, messages: d.say || d.cards?.length
+    ? [{who: 'today', text: d.say ?? '', cards: d.cards ?? [], at: d.at}] : []};
+  return d;
+};
+const saveDay = d => writeJSON(dayFile(dayKey()), d);
+const appendMessage = m => {
+  const d = loadDay() ?? {date: dayKey(), messages: []};
+  d.messages.push({...m, at: new Date().toISOString()});
+  saveDay(d);
+  return d;
+};
+/** 当天最后一次带任务卡的消息——打勾和统计都认它。 */
+const latestTasks = (d = loadDay()) => {
+  for (let i = (d?.messages?.length ?? 0) - 1; i >= 0; i--) {
+    const c = d.messages[i].cards?.find(x => x.type === 'tasks');
+    if (c) return {msg: d.messages[i], card: c};
+  }
+  return null;
+};
 
 /** 昨天没做完的。拿来判断什么该放下，不是用来追责。 */
 function carryOver() {
   const y = new Date(Date.now() - 86400000);
-  const d = loadDay(dayKey(y));
-  return (d?.cards ?? [])
-    .filter(c => c.type === 'tasks')
-    .flatMap(c => c.items.filter(t => !t.done).map(t => t.label));
+  const t = latestTasks(loadDay(dayKey(y)));
+  return (t?.card.items ?? []).filter(i => !i.done).map(i => i.label);
 }
 
 /**
@@ -138,10 +164,8 @@ async function callJSON(messages) {
 
 /** 今天还没打勾的。 */
 function openItems() {
-  const d = loadDay();
-  return (d?.cards ?? [])
-    .filter(c => c.type === 'tasks')
-    .flatMap(c => c.items.filter(t => !t.done).map(t => t.label));
+  const t = latestTasks();
+  return (t?.card.items ?? []).filter(i => !i.done).map(i => i.label);
 }
 
 async function ask(braindump, lang) {
@@ -271,27 +295,43 @@ createServer(async (req, res) => {
       if (!braindump?.trim()) return json(res, 400, {error: '空的'});
       const L = lang === 'zh' ? 'zh' : 'en';
 
+      // 她说的话也进对话流——这是一条对话，不是一次查询
+      appendMessage({who: 'her', text: braindump.trim()});
+
       const {turn, remember} = await ask(braindump, L);
       const mem = mergeMemory(loadMemory(), remember);
       writeJSON(MEM_FILE, mem);
-      writeJSON(dayFile(dayKey()), {...turn, date: dayKey(), at: new Date().toISOString()});
+      const day = appendMessage({who: 'today', text: turn.say, cards: turn.cards});
 
       const n = turn.cards.find(c => c.type === 'tasks')?.items.length ?? 0;
       const kept = mem.people.length + mem.rhythms.length + mem.carrying.length + mem.hers.length + mem.notes.length;
       console.log(`[${new Date().toLocaleTimeString('zh-CN')}] 排了 ${n} 件 · 记着 ${kept} 条`);
-      return json(res, 200, turn);
+      return json(res, 200, day);
     } catch (e) {
       console.error('失败：', e.message);
       return json(res, 500, {error: String(e.message || e)});
     }
   }
 
-  // 电视要的：Today 这次开口 + 它记着什么
+  // 整条对话。手机端按对话渲染，这是最外层。
+  if (url.pathname === '/day') {
+    const d = loadDay() ?? {date: dayKey(), messages: []};
+    return json(res, 200, {...d, memory: memoryCard(loadMemory())});
+  }
+
+  // 电视要的：最后一次开口 + 它记着什么。电视不是对话面，是一眼看见的那块。
   if (url.pathname === '/turn') {
     const d = loadDay();
-    const base = d ? {say: d.say, cards: d.cards} : {say: '', cards: []};
+    const last = [...(d?.messages ?? [])].reverse().find(m => m.who === 'today');
+    const t = latestTasks(d);
+    const cards = [];
+    if (t) cards.push(t.card);
+    const later = [...(d?.messages ?? [])].reverse()
+      .flatMap(m => m.cards ?? []).find(c => c.type === 'later');
+    if (later) cards.push(later);
     const mc = memoryCard(loadMemory());
-    return json(res, 200, mc ? {...base, cards: [...base.cards, mc]} : base);
+    if (mc) cards.push(mc);
+    return json(res, 200, {say: last?.text ?? '', cards});
   }
 
   // Today 先开口。手机页一打开就调这个。
@@ -316,14 +356,11 @@ createServer(async (req, res) => {
   if (url.pathname === '/toggle' && req.method === 'POST') {
     const {id} = JSON.parse((await readBody(req)) || '{}');
     const d = loadDay();
-    if (!d) return json(res, 404, {error: '今天还没有计划'});
-    d.cards = d.cards.map(c =>
-      c.type === 'tasks'
-        ? {...c, items: c.items.map(t => (t.id === id ? {...t, done: !t.done} : t))}
-        : c,
-    );
-    writeJSON(dayFile(dayKey()), d);
-    return json(res, 200, {say: d.say, cards: d.cards});
+    const t = latestTasks(d);
+    if (!t) return json(res, 404, {error: '今天还没有计划'});
+    t.card.items = t.card.items.map(i => (i.id === id ? {...i, done: !i.done} : i));
+    saveDay(d);
+    return json(res, 200, d);
   }
 
   json(res, 404, {error: 'not found'});
