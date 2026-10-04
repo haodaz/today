@@ -17,6 +17,7 @@ import {readFileSync, writeFileSync, existsSync, mkdirSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
+import {converseJSON, DEFAULT_MODEL as BEDROCK_DEFAULT} from './bedrock.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -36,6 +37,9 @@ if (existsSync(envFile)) {
 }
 
 const PROVIDERS = {
+  // Bedrock 不走 OpenAI 兼容接口，单独一条路径（server/bedrock.mjs）。
+  // 凭证按 AWS 默认链解析，不用 apiKey 字段。
+  bedrock: {bedrock: true, model: BEDROCK_DEFAULT},
   openai: {baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-luna', key: 'OPENAI_API_KEY'},
   nebius: {baseUrl: 'https://api.tokenfactory.nebius.com/v1', model: 'nvidia/nvidia-nemotron-3-nano-30b-a3b', key: 'NEBIUS_API_KEY'},
   dashscope: {baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', key: 'DASHSCOPE_API_KEY'},
@@ -109,8 +113,10 @@ function toTurn(v) {
   return {turn: {say: typeof o.say === 'string' ? o.say : '', cards}, remember: o.remember ?? {}};
 }
 
-/** 调一次模型，拿回 JSON。 */
+/** 调一次模型，拿回 JSON。供应商的差别全收在这里。 */
 async function callJSON(messages) {
+  if (P.bedrock) return converseJSON(messages, {model: MODEL});
+
   const apiKey = process.env[P.key];
   if (!apiKey) throw new Error(`缺少 ${P.key}`);
   const r = await fetch(`${P.baseUrl}/chat/completions`, {
@@ -314,7 +320,11 @@ createServer(async (req, res) => {
 }).listen(PORT, '0.0.0.0', () => {
   const m = loadMemory();
   const n = m.people.length + m.rhythms.length + m.carrying.length + m.hers.length + m.notes.length;
-  console.log(`\nToday 本地服务  ·  ${process.env.PROVIDER || 'openai'} / ${MODEL}`);
+  const who = process.env.PROVIDER || 'openai';
+  console.log(`\nToday 本地服务  ·  ${who} / ${MODEL}`);
+  if (P.bedrock && !process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_PROFILE) {
+    console.log('  ⚠️  没找到 AWS 凭证，Bedrock 调用会失败');
+  }
   console.log(`  记着 ${n} 条`);
   console.log(`  手机：http://192.168.1.243:${PORT}\n`);
 });

@@ -220,7 +220,9 @@ const s = StyleSheet.create({
   },
   // 内容比容器高时，居中会上下同时溢出——时间会被切掉顶。
   // 改成顶部对齐，并给整列留出余量。
-  left: {width: '38%', justifyContent: 'flex-start', paddingRight: space.lg, paddingTop: space.sm},
+  // 那句话是模型生成的，长度不可控，所以左栏不能靠固定间距硬凑。
+  // say 设成可伸缩，长了自己占空间，短了把「今天不做」往上收。
+  left: {width: '38%', paddingRight: space.lg, paddingTop: space.sm},
   clock: {
     fontSize: type.clock,
     fontWeight: '300',
@@ -234,8 +236,8 @@ const s = StyleSheet.create({
   voice: {alignItems: 'flex-start'},
   // 不要太大。它是陪着的，不是主角；主角是她今天要过的日子。
   tiger: {width: 84, height: 80, marginBottom: space.xs},
-  say: {fontSize: type.greeting, fontWeight: '300', lineHeight: 52},
-  laterBlock: {marginTop: space.lg},
+  say: {flexShrink: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 52},
+  laterBlock: {marginTop: space.md, paddingBottom: space.sm},
   memBlock: {marginTop: space.lg, paddingHorizontal: space.xs},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
   smallItem: {fontSize: type.meta, lineHeight: 30},

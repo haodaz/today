@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1146.0",
     "expo": "~57.0.26",
     "expo-build-properties": "~57.0.22",
     "expo-keep-awake": "~57.0.2",

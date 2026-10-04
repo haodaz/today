@@ -16,7 +16,11 @@ const config = getDefaultConfig(__dirname);
  * 这里把嵌套那份从打包范围里屏蔽掉，解析会向上落到唯一的 tvos 那份。
  */
 const nested = path.resolve(__dirname, 'node_modules/react-native/node_modules/react-native');
-config.resolver.blockList = [new RegExp(`^${nested.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/.*$`)];
+const nestedRe = new RegExp(`^${nested.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/.*$`);
+
+// 追加，不是替换。Expo 的默认 blockList 排除了 android/app/build、.expo/types 等，
+// 直接赋值会把它们放回打包范围——Metro 会去扫构建产物，慢且可能打包进垃圾。
+config.resolver.blockList = [...[].concat(config.resolver.blockList ?? []), nestedRe];
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules || {}),
   'react-native': path.resolve(__dirname, 'node_modules/react-native'),

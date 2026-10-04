@@ -1,85 +1,177 @@
 # Today
 
-**陪着你过好今天，就是过好每一天。**
+**A small tiger who keeps today for you.**
 
-客厅里那台电视，一整天大部分时间是黑的。打开它，它要么卖你东西，要么给你一条看不完的信息流。
+The television in the living room is dark for most of the day. Turn it on and it
+either sells you something or hands you a feed that never ends.
 
-Today 把它变成别的：一块全天亮着的、安静的屏，陪一位妈妈把今天过完。
+Today makes it something else: a quiet screen that stays on, keeping a
+stay-at-home mother company through the day.
 
-- 抬头看一眼就知道现在几点、今天还剩什么
-- 遥控器上下选，中间键打勾
-- 一个温柔的 agent 总控：不提醒你还差多少，只把一天压成能做完的几件
-- **不卖货，不推信息流，不做让你多看一眼的设计**
+> A to-do list says *here is what you owe.*
+> Today says *I'm keeping these for you.*
+> The weight sits with the tiger, not with her.
 
-为 [Build, Ship, Shape: Amazon Developer Hackathon](https://amazonappdev2026.devpost.com/) 的 Fire TV 赛道而做。
+Built for the **Fire TV** track of
+[Build, Ship, Shape: Amazon Developer Hackathon](https://amazonappdev2026.devpost.com/).
+
+*[中文版 README](README.zh.md)*
 
 ---
 
-## 它怎么用
+## How it works
 
-她对着**手机**说一段话——乱的、重复的、带情绪的都行。
-到家推门进来，**电视上已经是今天了**。
+She speaks into her **phone** — messy, repetitive, tired, however it comes out.
+By the time she walks in the door, the **television already shows today**.
 
-她不需要站在电视前规划一天。那本来就不是电视该干的事。
-手机是输入面（系统听写最准），电视是环境面（抬头一眼就看见）。
+She never has to stand in front of the TV to plan her day. That was never the
+TV's job. The phone is where you say things; the television is where you glance.
 
-详见 [doc/input-architecture.md](doc/input-architecture.md) —— 里面记了为什么不是遥控器语音（Fire TV 第三方 app 拿不到麦克风，官方文档明确不支持自由口述）。
+![Today on a Fire TV](doc/shots/06-today-with-tiger.png)
 
-## 它不做什么
+## Why not just talk to the remote
 
-这部分和它做什么一样重要，写在这里是为了将来有人想加功能时能回来看一眼：
-
-- 不推荐内容
-- 不接购物
-- 不做通知红点、连续打卡、未完成计数这类让人焦虑的机制
-- 不在晚上把屏幕拉到最亮
-
-## agent 的三条规矩
-
-写在 [`src/agent/prompt.js`](Today/src/agent/prompt.js) 里，一大半是「不许做什么」：
-
-1. **最多三件，剩下的明确说「今天不做」。** 让人放心的不是清空列表，是知道什么被允许放下。
-2. **三件里必须有一件是给她自己的**，而且**必须独立成立**——不许写成「买菜时顺便走走」。去掉那件家务它还得在。
-3. **不打鸡血，不计数，不说教，不推荐任何商品。** 不提她落下多少。
-
-第 2 条是实测加上去的：模型第一版把「出门走十分钟」挂在了「买牛奶和洗衣液」后面。那不是模型的错——真实世界里这件事本来就是这么发生的。所以要写死。
-
-## 技术
+Because you can't. We checked, and the answer is final:
 
 | | |
 |---|---|
-| 平台 | Fire OS 8（Android 11 / API 30），实机 Toshiba 50C350NU |
-| 框架 | Expo SDK 57 + [react-native-tvos](https://github.com/react-native-tvos/react-native-tvos) 0.86.3 |
-| TV 配置 | [`@react-native-tvos/config-tv`](https://www.npmjs.com/package/@react-native-tvos/config-tv)，注入 `LEANBACK_LAUNCHER` / `touchscreen required=false` / `software.leanback` |
-| 常亮 | `expo-keep-awake` |
-| agent | 供应商无关（OpenAI 兼容），提交版走 AWS Bedrock |
+| Third-party app reading the remote mic | **Not possible.** The mic button is wired to Alexa and is never exposed to apps |
+| `android.speech.SpeechRecognizer` | **Unavailable.** Fire OS ships without Google Play Services |
+| `RECORD_AUDIO` with a USB / Bluetooth mic | Known to fail on Fire TV 3rd gen and later |
+| Video Skills Kit · Media Session API | Predefined commands only — play, pause, rewind, channel |
 
-### 两个为电视而做的设计决定
+Amazon's own documentation is explicit: apps **cannot capture arbitrary
+free-form speech or dictation**.
 
-**1. 背景随一天的光线走。**
-这块屏幕全天开着。固定一块高亮浅色面板从早亮到晚，既刺眼也费电。所以背景分四个时段：清晨偏冷、白天中性、傍晚转暖、入夜整块沉下来。这不是「深色模式」开关，是一天的光线变化。见 [`src/theme.ts`](Today/src/theme.ts)。
+And typing on a remote means walking a D-pad across a grid of letters. A single
+sentence takes two minutes.
 
-**2. 焦点必须三米外看得见。**
-电视没有触屏，只有遥控器方向键。沙发离屏幕三米，手机上那种细微的描边变化等于没有。所以聚焦时整行放大、描边变主色、投影浮起。见 [`src/TaskRow.tsx`](Today/src/TaskRow.tsx)。
+So the recording happens **in the phone page itself** — not through the
+keyboard's dictation key, because many phones don't have one (we tested; it is a
+system setting most people never turn on, and no product should rest on that).
+`MediaRecorder` captures the audio, the server transcribes it, and speech and
+typing join the same path from there.
 
-## 跑起来
+That costs one thing: `getUserMedia` needs a secure context, and iOS Safari only
+grants microphone access over HTTPS. Which is why the server is fronted by a
+tunnel rather than served over the LAN.
+
+Full notes: [doc/input-architecture.md](doc/input-architecture.md).
+
+## What it refuses to do
+
+This matters as much as what it does, and it is written down so that anyone
+tempted to add a feature later can read it first:
+
+- No content recommendations
+- No shopping
+- No badges, streaks, overdue counts, or anything else that manufactures anxiety
+- No full-brightness white panel at night
+
+## Three rules the agent lives by
+
+They live in [`Today/src/agent/prompt.js`](Today/src/agent/prompt.js), and most
+of them are prohibitions:
+
+**1. Pick three. Say out loud what is not happening today.**
+What reassures someone is not an empty list — it is knowing what they are allowed
+to put down.
+
+**2. One of the three is hers, and it must stand on its own.**
+Not a reward, not "once everything else is done". And never attached to a chore:
+*"take a walk while you're out shopping"* does not count. Remove the chore and
+the item must survive.
+
+This rule was added after watching it fail. The first run produced *"buy milk and
+detergent — walk ten extra minutes on the way back"*. That isn't the model making
+a mistake; in the real world, a mother's own needs really are attached to errands
+like that. So it had to be written down.
+
+**3. Never describe your own work.**
+No item counts, no mention of "later", no explaining the reasoning. An early
+English run opened with *"today stays to three things and the rest goes to
+later"* — the agent narrating its own algorithm, in the largest type on the
+screen. You wouldn't tell a friend "I've narrowed your list down to three".
+
+## Memory
+
+*"I'm keeping these for you"* cannot be a lie. Something that claims to remember
+today and forgets by tomorrow is worse than something that never claimed it. So
+memory is the premise of the character, not a feature of the app.
+
+Five kinds, in `.data/memory.json`:
+
+| | | |
+|---|---|---|
+| `people` | who is who in her life | *Bits — her child* |
+| `rhythms` | what recurs | *school forms are due Wednesdays* |
+| `carrying` | what she keeps deferring | **not to hold against her** — so the agent knows what is safe to put down |
+| `hers` | what she does for herself | so there is room kept for it next time |
+| `notes` | anything else worth holding | |
+
+Each kind is capped and newest-first. Memory that grows without limit both blows
+the context window and fills up with things that stopped being true.
+
+It is observable: memory is a card on screen. She can see what Today remembers,
+which is the only basis on which trust — or correction — is possible.
+
+**It works.** Told *"Bits has a vaccination tomorrow, and I always forget the
+Wednesday school form,"* it filed *Bits — her child* and recognised *school forms
+are due Wednesdays* as a **rhythm**, not a one-off. Later, told only *"I'm so
+tired today,"* it answered *"I know today has been heavy — let's keep it light"*
+and planned **two** items instead of three.
+
+## Build
+
+| | |
+|---|---|
+| Device | Fire OS 8 (Android 11 / API 30), tested on a Toshiba 50C350NU |
+| Framework | Expo SDK 57 + [react-native-tvos](https://github.com/react-native-tvos/react-native-tvos) 0.86.3 |
+| TV config | [`@react-native-tvos/config-tv`](https://www.npmjs.com/package/@react-native-tvos/config-tv) — injects `LEANBACK_LAUNCHER`, `touchscreen required=false`, `software.leanback` |
+| Always on | `expo-keep-awake` |
+| Speech | `MediaRecorder` in the page → Whisper |
+| Agent | provider-agnostic; AWS Bedrock for submission |
+| Character | generated with Tongyi Wanxiang, cut out by [`scripts/cutout.mjs`](Today/scripts/cutout.mjs) |
+
+### Two decisions made for a television
+
+**The background follows the light of the day.**
+This screen is on all day. One bright panel held from morning to night is both
+harsh and wasteful, so the background moves through four phases: cool at dawn,
+neutral through the day, warm at dusk, and settling down after dark. Not a
+dark-mode toggle — the light changing.
+See [`Today/src/theme.ts`](Today/src/theme.ts).
+
+**Focus has to be visible from three metres.**
+A television has no touchscreen, only a D-pad. The subtle border shift that works
+on a phone is invisible from a sofa. So the focused row scales up, takes the
+accent colour, and lifts on a shadow.
+See [`Today/src/TaskRow.tsx`](Today/src/TaskRow.tsx).
+
+## Running it
 
 ```bash
 cd Today
 npm install
-source ./env.sh
-./release.sh     # 出自包含的 APK
-./install.sh     # 连 Fire TV 并安装
+cp .env.local.example .env.local   # add one model key
+./start.sh                          # local server + HTTPS tunnel
+./release.sh && ./install.sh        # build the APK and push it to the TV
 ```
 
-需要在 Fire TV 上先开发者模式：**设置 → My Fire TV → About → 光标停在设备名上，中间键连按 7 下**，返回后 **Developer Options** 才会出现，进去打开 **ADB Debugging**。
+Enable developer mode on the Fire TV first: **Settings → My Fire TV → About →
+press the centre button seven times on the device name**, go back, and
+**Developer Options** appears. Turn on **ADB Debugging**.
 
-调 agent 的 prompt 不用重编 APK：
+Iterating on the agent needs no rebuild:
 
 ```bash
-PROVIDER=openai node scripts/plan.mjs "你想试的一段话"
+PROVIDER=openai node Today/scripts/plan.mjs "whatever you want to try"
 ```
 
-## 许可
+The bench prints the plan laid out as the TV would show it, and flags the three
+things that matter: more than three items, **nothing that belongs to her**, and
+labels too long for one line.
 
-MIT，见 [LICENSE](LICENSE)。
+## Licence
+
+MIT — see [LICENSE](LICENSE).
