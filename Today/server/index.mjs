@@ -16,7 +16,7 @@ import {createServer} from 'node:http';
 import {readFileSync, writeFileSync, existsSync, mkdirSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {buildMessages} from '../src/agent/prompt.js';
+import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -109,27 +109,63 @@ function toTurn(v) {
   return {turn: {say: typeof o.say === 'string' ? o.say : '', cards}, remember: o.remember ?? {}};
 }
 
-async function ask(braindump, lang) {
+/** 调一次模型，拿回 JSON。 */
+async function callJSON(messages) {
   const apiKey = process.env[P.key];
   if (!apiKey) throw new Error(`缺少 ${P.key}`);
-  const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
-
   const r = await fetch(`${P.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`},
     body: JSON.stringify({
       model: MODEL,
-      messages: buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver()}),
+      messages,
       // 新一代推理模型只接受默认 temperature
       ...(/^(gpt-[56]|o[0-9])/.test(MODEL) ? {} : {temperature: 0.4}),
       response_format: {type: 'json_object'},
     }),
   });
   if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 300)}`);
-
   const raw = (await r.json()).choices?.[0]?.message?.content ?? '';
   const body = raw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? raw;
-  return toTurn(JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1)));
+  return JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1));
+}
+
+/** 今天还没打勾的。 */
+function openItems() {
+  const d = loadDay();
+  return (d?.cards ?? [])
+    .filter(c => c.type === 'tasks')
+    .flatMap(c => c.items.filter(t => !t.done).map(t => t.label));
+}
+
+async function ask(braindump, lang) {
+  const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
+  return toTurn(
+    await callJSON(buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver()})),
+  );
+}
+
+/**
+ * Today 先开口。
+ *
+ * 这是「AI 主导第一层沟通」的地方：她打开页面的那一刻，
+ * Today 已经基于它记得的东西说了一句只有它能说的话——
+ * 而不是一行写死的「我在听」。
+ */
+async function greet(lang) {
+  const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
+  const open = openItems();
+  const r = await callJSON(buildGreeting({now, lang, memory: loadMemory(), open, left: open.length}));
+  let say = typeof r?.say === 'string' ? r.say.trim() : '';
+  // 模型偶尔不守长度。这句在屏幕上是最大的一行，太长会吃掉半屏，
+  // 所以超限就截到第一个句读为止——宁可短，不要满屏。
+  const LIMIT = lang === 'zh' ? 20 : 90;
+  if (say.length > LIMIT) {
+    const cut = say.slice(0, LIMIT + 8).match(/^[\s\S]*?[。，；,;.]/);
+    // 句读要跟着语言走，不能给英文补一个中文句号
+    say = (cut ? cut[0] : say.slice(0, LIMIT)).replace(/[，,；;]$/, lang === 'zh' ? '。' : '.');
+  }
+  return {say};
 }
 
 /** 记忆也是一张卡片——她得看得见 Today 记住了什么，才谈得上信任。 */
@@ -167,6 +203,12 @@ createServer(async (req, res) => {
     return res.end(readFileSync(join(HERE, 'phone.html')));
   }
 
+  // Today 的形象
+  if (url.pathname === '/today-listening.png') {
+    res.writeHead(200, {'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400'});
+    return res.end(readFileSync(join(ROOT, 'assets/today/today-listening.png')));
+  }
+
   if (url.pathname === '/braindump' && req.method === 'POST') {
     try {
       const {braindump, lang} = JSON.parse(await readBody(req));
@@ -194,6 +236,18 @@ createServer(async (req, res) => {
     const base = d ? {say: d.say, cards: d.cards} : {say: '', cards: []};
     const mc = memoryCard(loadMemory());
     return json(res, 200, mc ? {...base, cards: [...base.cards, mc]} : base);
+  }
+
+  // Today 先开口。手机页一打开就调这个。
+  if (url.pathname === '/greet') {
+    try {
+      const lang = url.searchParams.get('lang') === 'zh' ? 'zh' : 'en';
+      return json(res, 200, await greet(lang));
+    } catch (e) {
+      // 开场白拿不到不该挡住她说话——退回空串，页面自己有兜底
+      console.error('开场失败：', e.message);
+      return json(res, 200, {say: ''});
+    }
   }
 
   if (url.pathname === '/memory') return json(res, 200, loadMemory());

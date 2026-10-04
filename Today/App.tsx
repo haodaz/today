@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {SafeAreaView, StatusBar, StyleSheet, Text, View} from 'react-native';
+import {Image, SafeAreaView, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
@@ -14,6 +14,9 @@ const API = 'http://192.168.1.243:8910';
 const QR = 260;
 
 const EMPTY: Turn = {say: '', cards: []};
+
+/** 捧心的小老虎。它捧着的就是她交给它的事。 */
+const TIGER = require('./assets/today/today-holding.png');
 
 export default function App() {
   // 这块屏幕要全天亮着，不能让系统屏保把它盖掉
@@ -102,8 +105,13 @@ export default function App() {
             {dateLineOf(now, lang)}
           </Text>
           <View style={[s.rule, {backgroundColor: p.border}]} />
-          {/* TODO: 这里放 Today 的形象（AI 生成，不是手画的 SVG） */}
-          <Text style={[s.say, {color: p.text}]}>{turn.say || x.empty}</Text>
+
+          {/* Today 本人。它说的话紧跟在它下面——
+              这块屏上最重要的不是清单，是有人在替你记着。 */}
+          <View style={s.voice}>
+            <Image source={TIGER} style={s.tiger} resizeMode="contain" />
+            <Text style={[s.say, {color: p.text}]}>{turn.say || x.empty}</Text>
+          </View>
 
           {later?.type === 'later' ? (
             <View style={s.laterBlock}>
@@ -208,7 +216,10 @@ const s = StyleSheet.create({
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
   rule: {height: 1, width: 72, marginVertical: space.md},
-  say: {fontSize: type.greeting, fontWeight: '300', lineHeight: 56},
+  voice: {flexDirection: 'row', alignItems: 'flex-start'},
+  // 老虎不要太大——它是陪着的，不是主角。主角是她今天要过的日子。
+  tiger: {width: 108, height: 104, marginRight: space.md, marginTop: 2},
+  say: {flex: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 56},
   laterBlock: {marginTop: space.xl},
   memBlock: {marginTop: space.lg, paddingHorizontal: space.xs},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
