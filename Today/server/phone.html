@@ -71,6 +71,10 @@
   }
   textarea::placeholder{color:var(--faint)}
   .hint{margin:0 2px 10px;font-size:13.5px;color:var(--faint)}
+  /* 录音时的音量条。不画波形——她不需要看自己的声音好不好看，
+     只需要知道「它确实在收」。 */
+  .level{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:0 2px 12px}
+  .level span{display:block;height:100%;width:0;background:var(--ember);transition:width .08s linear}
   .err{color:#B3261E;font-size:14.5px;margin:8px 2px 0}
   [hidden]{display:none !important}
 </style>
@@ -85,9 +89,21 @@
 <main>
   <div class="cards" id="cards"></div>
 
-  <!-- 常态：Today 在那儿，她想说的时候才触发 -->
+  <!-- 常态：Today 在那儿，她想说的时候才触发。
+       主按钮是说话，不是打字——她手上多半抱着孩子。 -->
   <div class="act" id="rest">
-    <button id="talk"></button>
+    <button id="rec"></button>
+    <button class="ghost" id="type"></button>
+  </div>
+
+  <!-- 录音中 -->
+  <div id="recording" hidden>
+    <p class="level"><span id="bar"></span></p>
+    <p class="hint" id="recHint"></p>
+    <div class="act">
+      <button id="stop"></button>
+      <button class="ghost" id="drop"></button>
+    </div>
   </div>
 
   <!-- 她触发之后 -->
@@ -108,14 +124,20 @@ const $ = id => document.getElementById(id);
 
 const DICT = {
   zh: {
-    talk: '跟它说说今天', send: '说完了', sending: '它在听…', cancel: '算了',
+    rec: '按住说，或点一下开始', type: '打字', stop: '说完了', drop: '算了',
+    recording: '在听…', hearing: '它在听你说…',
+    send: '说完了', sending: '它在听…', cancel: '算了',
+    noMic: '这台设备不让网页用麦克风。先打字吧。',
     ph: '想到什么说什么，不用整理。',
     hint: '可以直接说，也可以打字。',
     quiet: '我先收着', err: '没弄成：',
     fallback: '我在。',
   },
   en: {
-    talk: 'Tell it about today', send: "That's everything", sending: 'Listening…', cancel: 'Never mind',
+    rec: 'Hold to talk, or tap to start', type: 'Type', stop: "That's everything", drop: 'Never mind',
+    recording: 'Listening…', hearing: 'Taking that in…',
+    send: "That's everything", sending: 'Listening…', cancel: 'Never mind',
+    noMic: "This device won't give the page a microphone. Type instead.",
     ph: 'Say it however it comes. No need to sort it out.',
     hint: 'Speak it or type it, whichever is easier.',
     quiet: "I'm keeping these", err: "Didn't work: ",
@@ -125,7 +147,11 @@ const DICT = {
 const LANG = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
 const X = DICT[LANG];
 document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
-$('talk').textContent = X.talk;
+$('rec').textContent = X.rec;
+$('type').textContent = X.type;
+$('stop').textContent = X.stop;
+$('drop').textContent = X.drop;
+$('recHint').textContent = X.recording;
 $('send').textContent = X.send;
 $('cancel').textContent = X.cancel;
 $('t').placeholder = X.ph;
@@ -148,16 +174,117 @@ function setSay(text, pending) {
 }
 const thinking = on => $('tiger').classList.toggle('thinking', on);
 
-$('talk').onclick = () => {
+$('type').onclick = () => {
   $('rest').hidden = true;
   $('compose').hidden = false;
   $('t').focus();
 };
+
+/* ── 录音 ──────────────────────────────────────────────────
+   不依赖键盘的听写键：实测很多手机根本没有那个键。
+   getUserMedia 需要安全上下文，所以这页必须走 HTTPS——
+   局域网 http:// 下 iOS Safari 不会给麦克风权限。
+   ─────────────────────────────────────────────────────── */
+let rec = null, chunks = [], meter = null;
+
+async function startRec() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    // iOS Safari 录 audio/mp4，安卓录 audio/webm，让浏览器自己挑
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+      .find(m => window.MediaRecorder?.isTypeSupported?.(m));
+    rec = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+    chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (meter) { meter.ctx.close().catch(() => {}); meter = null; }
+      $('bar').style.width = '0%';
+      send(new Blob(chunks, {type: rec.mimeType || 'audio/webm'}));
+    };
+    rec.start();
+    level(stream);
+    $('rest').hidden = true;
+    $('recording').hidden = false;
+    thinking(false);
+  } catch (e) {
+    $('err').textContent = X.noMic;
+    $('err').hidden = false;
+    $('type').click();
+  }
+}
+
+/** 音量条。只是让她知道「它确实在收」，不画波形。 */
+function level(stream) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = ctx.createAnalyser();
+    an.fftSize = 256;
+    ctx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.frequencyBinCount);
+    meter = {ctx};
+    const tick = () => {
+      if (!meter) return;
+      an.getByteTimeDomainData(buf);
+      let peak = 0;
+      for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+      $('bar').style.width = Math.min(100, (peak / 60) * 100) + '%';
+      requestAnimationFrame(tick);
+    };
+    tick();
+  } catch {}
+}
+
+$('rec').onclick = () => { if (!rec || rec.state === 'inactive') startRec(); };
+$('stop').onclick = () => rec?.state === 'recording' && rec.stop();
+$('drop').onclick = () => {
+  if (rec?.state === 'recording') { chunks = []; rec.onstop = null; rec.stop(); }
+  if (meter) { meter.ctx.close().catch(() => {}); meter = null; }
+  rec = null;
+  $('recording').hidden = true;
+  $('rest').hidden = false;
+};
+
+async function send(blob) {
+  $('recording').hidden = true;
+  setSay(X.hearing, true);
+  thinking(true);
+  try {
+    const r = await fetch('/transcribe', {
+      method: 'POST',
+      headers: {'Content-Type': blob.type || 'audio/webm'},
+      body: blob,
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const {text} = await r.json();
+    if (!text) throw new Error('没听清');
+    await submit(text);
+  } catch (e) {
+    $('err').textContent = X.err + String(e.message || e).slice(0, 160);
+    $('err').hidden = false;
+    setSay('');
+  } finally {
+    thinking(false);
+    rec = null;
+    $('rest').hidden = false;
+  }
+}
 $('cancel').onclick = () => {
   $('compose').hidden = true;
   $('rest').hidden = false;
   $('t').value = '';
 };
+
+/** 说的和打的走同一条路：到这里都只是一段文字。 */
+async function submit(text) {
+  const r = await fetch('/braindump', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({braindump: text, lang: LANG}),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  render(await r.json());
+}
 
 $('send').onclick = async () => {
   const text = $('t').value.trim();
@@ -167,13 +294,7 @@ $('send').onclick = async () => {
   $('err').hidden = true;
   thinking(true);
   try {
-    const r = await fetch('/braindump', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({braindump: text, lang: LANG}),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    render(await r.json());
+    await submit(text);
     $('compose').hidden = true;
     $('rest').hidden = false;
     $('t').value = '';

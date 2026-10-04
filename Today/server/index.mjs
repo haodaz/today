@@ -185,6 +185,9 @@ const json = (res, code, obj) => {
 const readBody = req => new Promise(ok => {
   let b = ''; req.on('data', c => (b += c)); req.on('end', () => ok(b));
 });
+const readRaw = req => new Promise(ok => {
+  const cs = []; req.on('data', c => cs.push(c)); req.on('end', () => ok(Buffer.concat(cs)));
+});
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -207,6 +210,43 @@ createServer(async (req, res) => {
   if (url.pathname === '/today-listening.png') {
     res.writeHead(200, {'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400'});
     return res.end(readFileSync(join(ROOT, 'assets/today/today-listening.png')));
+  }
+
+  /**
+   * 手机录的音 → 文字。
+   *
+   * 不走系统键盘的听写键：实测很多手机根本没有那个键（要在设置里
+   * 单独开启），把产品押在一个大多数人没开的系统开关上是错的。
+   * 所以页面自己录，这里转写。
+   *
+   * 代价是 getUserMedia 需要安全上下文——iOS Safari 只在 HTTPS 下
+   * 给麦克风权限。所以这个端点必须配合 HTTPS 隧道才有意义。
+   */
+  if (url.pathname === '/transcribe' && req.method === 'POST') {
+    try {
+      const audio = await readRaw(req);
+      if (!audio.length) return json(res, 400, {error: '没收到音频'});
+      const mime = req.headers['content-type'] || 'audio/webm';
+      // iOS Safari 录出来是 audio/mp4，安卓是 audio/webm，扩展名要对上
+      const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+
+      const fd = new FormData();
+      fd.append('file', new Blob([audio], {type: mime}), `say.${ext}`);
+      fd.append('model', 'whisper-1');
+
+      const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {Authorization: `Bearer ${process.env.OPENAI_API_KEY}`},
+        body: fd,
+      });
+      if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
+      const {text} = await r.json();
+      console.log(`[${new Date().toLocaleTimeString('zh-CN')}] 听到 ${audio.length / 1024 | 0}KB → ${String(text).slice(0, 40)}…`);
+      return json(res, 200, {text: String(text ?? '').trim()});
+    } catch (e) {
+      console.error('转写失败：', e.message);
+      return json(res, 500, {error: String(e.message || e)});
+    }
   }
 
   if (url.pathname === '/braindump' && req.method === 'POST') {
@@ -248,6 +288,11 @@ createServer(async (req, res) => {
       console.error('开场失败：', e.message);
       return json(res, 200, {say: ''});
     }
+  }
+
+  // 对外地址。隧道地址每次重启会变，所以不写死在 app 里，由服务端告知。
+  if (url.pathname === '/where') {
+    return json(res, 200, {url: process.env.PUBLIC_URL || ''});
   }
 
   if (url.pathname === '/memory') return json(res, 200, loadMemory());

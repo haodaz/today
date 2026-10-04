@@ -48,3 +48,6 @@ yarn-error.*
 
 # 出图原件与备选（大，不进仓库）
 .figures-raw/
+
+# 隧道日志
+*.cf.log

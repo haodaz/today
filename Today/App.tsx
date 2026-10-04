@@ -7,7 +7,12 @@ import {daypartOf, palettes, safe, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
 import type {Card, Turn} from './src/agent/types';
 
-/** 本机局域网地址。上线后换成公网域名。 */
+/**
+ * 电视和服务在同一个局域网，所以它自己走内网——不绕公网，断网也不影响。
+ * 但二维码必须给公网地址：手机要能在外面用，而且页面内录音需要 HTTPS
+ * （iOS Safari 只在安全上下文下给麦克风权限）。
+ * 隧道地址每次重启会变，所以不写死，向服务端要。
+ */
 const API = 'http://192.168.1.243:8910';
 
 /** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
@@ -27,6 +32,8 @@ export default function App() {
 
   const [now, setNow] = useState(new Date());
   const [turn, setTurn] = useState<Turn>(EMPTY);
+  /** 手机要扫的地址。拿不到公网地址就退回内网，至少在家里能用。 */
+  const [scanUrl, setScanUrl] = useState(API);
 
   useEffect(() => {
     const clock = setInterval(() => setNow(new Date()), 10_000);
@@ -50,6 +57,10 @@ export default function App() {
       }
     };
     pull();
+    fetch(`${API}/where`)
+      .then(r => r.json())
+      .then(d => d?.url && alive && setScanUrl(d.url))
+      .catch(() => {});
     const id = setInterval(pull, 5_000);
     return () => {
       alive = false;
@@ -182,7 +193,7 @@ export default function App() {
             <View style={s.empty}>
               <View style={[s.qrFrame, {backgroundColor: '#FFFFFF'}]}>
                 <QRCode
-                  value={API}
+                  value={scanUrl}
                   size={QR}
                   color="#1C1D1C"
                   backgroundColor="#FFFFFF"
