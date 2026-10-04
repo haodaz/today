@@ -16,6 +16,7 @@ const DICT = {
     remoteHint: '按遥控器上下选，中间键打勾',
     empty: '今天还没理。',
     scanHint: '手机扫一下，说说今天',
+    iRemember: '我还记着',
     weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
     date: (m: number, d: number, w: string) => `${m} 月 ${d} 日 · ${w}`,
   },
@@ -27,6 +28,7 @@ const DICT = {
     remoteHint: 'Up and down to move, centre to check off',
     empty: "Today isn't sorted yet.",
     scanHint: 'Scan with your phone and tell it about today',
+    iRemember: 'I also remember',
     weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     date: (m: number, d: number, w: string) =>
       `${['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1]} ${d} · ${w}`,

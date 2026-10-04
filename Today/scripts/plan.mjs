@@ -75,7 +75,7 @@ try {
 
 // 按电视上的样子排版，好判断「这段话放上去好不好看」
 const W = s => [...s].reduce((n, c) => n + (c.charCodeAt(0) > 255 ? 2 : 1), 0);
-console.log(`\x1b[1m${plan.greeting}\x1b[0m\n`);
+console.log(`\x1b[1m${plan.say || plan.greeting}\x1b[0m\n`);
 console.log('今天');
 for (const t of plan.focus ?? []) {
   const her = t.forHer ? ' \x1b[33m← 给她自己\x1b[0m' : '';

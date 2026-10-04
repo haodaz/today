@@ -2,13 +2,13 @@
 /**
  * Today 的本地服务。
  *
- * 这是过渡实现，形状和最终的 AWS 版本一致：
- *   手机 POST /braindump → agent → 存下来
- *   电视 GET  /plan      → 取今天的 plan
- *   电视 POST /toggle    → 勾选状态回写
+ * 过渡实现，形状和最终的 AWS 版本一致：
+ *   手机 POST /braindump → agent → 存当天 + 更新记忆
+ *   电视 GET  /turn      → 取 Today 这次开口（一句话 + 卡片）
+ *   电视 POST /toggle    → 勾选回写
+ *        GET  /memory    → Today 记着什么
  *
- * 之后换成 API Gateway + Lambda + Bedrock + DynamoDB 时，
- * 这三个端点的请求和响应格式不变，手机页和电视端一行都不用改。
+ * 换成 API Gateway + Lambda + Bedrock + DynamoDB 时这几个端点不变。
  *
  *   node server/index.mjs
  */
@@ -21,10 +21,12 @@ import {buildMessages} from '../src/agent/prompt.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const DATA = join(ROOT, '.data');
-const PLAN_FILE = join(DATA, 'plan.json');
+const DAYS = join(DATA, 'days');
+const MEM_FILE = join(DATA, 'memory.json');
 const PORT = Number(process.env.PORT || 8910);
 
-// 读 .env.local
+for (const d of [DATA, DAYS]) if (!existsSync(d)) mkdirSync(d, {recursive: true});
+
 const envFile = join(ROOT, '.env.local');
 if (existsSync(envFile)) {
   for (const line of readFileSync(envFile, 'utf8').split('\n')) {
@@ -41,37 +43,73 @@ const PROVIDERS = {
 const P = PROVIDERS[process.env.PROVIDER || 'openai'];
 const MODEL = process.env.MODEL || P.model;
 
-if (!existsSync(DATA)) mkdirSync(DATA, {recursive: true});
+const dayKey = (d = new Date()) => d.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+const dayFile = k => join(DAYS, `${k}.json`);
 
-const todayKey = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+const readJSON = (f, fallback) => {
+  try { return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : fallback; }
+  catch { return fallback; }
+};
+const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
 
-function loadPlan() {
-  if (!existsSync(PLAN_FILE)) return null;
-  try {
-    const p = JSON.parse(readFileSync(PLAN_FILE, 'utf8'));
-    // 跨天就作废。今天的事不该在明天还挂着。
-    return p.date === todayKey() ? p : null;
-  } catch { return null; }
+const EMPTY_MEMORY = {people: [], rhythms: [], carrying: [], hers: [], notes: [], updatedAt: ''};
+const loadMemory = () => readJSON(MEM_FILE, EMPTY_MEMORY);
+const loadDay = (k = dayKey()) => readJSON(dayFile(k), null);
+
+/** 昨天没做完的。拿来判断什么该放下，不是用来追责。 */
+function carryOver() {
+  const y = new Date(Date.now() - 86400000);
+  const d = loadDay(dayKey(y));
+  return (d?.cards ?? [])
+    .filter(c => c.type === 'tasks')
+    .flatMap(c => c.items.filter(t => !t.done).map(t => t.label));
 }
-const savePlan = p => writeFileSync(PLAN_FILE, JSON.stringify(p, null, 2));
 
-/** 模型不总是听话：超过三件截断，done 从 false 开始，缺字段补默认值。 */
-function normalize(v) {
+/**
+ * 合并记忆。只增不删，去重，各类有上限——
+ * 记忆无限增长会把上下文撑爆，也会让它记住一堆早就不成立的事。
+ */
+const CAPS = {people: 12, rhythms: 10, carrying: 10, hers: 10, notes: 16};
+function mergeMemory(cur, add) {
+  const out = {...cur};
+  const key = v => (typeof v === 'string' ? v.trim() : `${v?.name ?? ''}`.trim());
+  for (const k of Object.keys(CAPS)) {
+    const seen = new Set((cur[k] ?? []).map(key).filter(Boolean));
+    const fresh = (add?.[k] ?? []).filter(v => {
+      const s = key(v);
+      if (!s || seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
+    // 新的放前面：近期的事更可能还成立
+    out[k] = [...fresh, ...(cur[k] ?? [])].slice(0, CAPS[k]);
+  }
+  out.updatedAt = new Date().toISOString();
+  return out;
+}
+
+/** 模型不总是听话。超过三件截断，done 从 false 开始，缺字段补默认值。 */
+function toTurn(v) {
   const o = v ?? {};
-  return {
-    greeting: typeof o.greeting === 'string' ? o.greeting : '',
-    focus: (Array.isArray(o.focus) ? o.focus : []).slice(0, 3).map((t, i) => ({
-      id: String(t?.id ?? i + 1),
-      label: String(t?.label ?? '').trim(),
-      note: t?.note ? String(t.note).trim() : undefined,
-      forHer: t?.forHer === true,
-      done: false,
-    })).filter(t => t.label),
-    later: (Array.isArray(o.later) ? o.later : []).map(String).map(s => s.trim()).filter(Boolean).slice(0, 8),
-  };
+  const tasks = (Array.isArray(o.focus) ? o.focus : []).slice(0, 3).map((t, i) => ({
+    id: String(t?.id ?? i + 1),
+    label: String(t?.label ?? '').trim(),
+    note: t?.note ? String(t.note).trim() : undefined,
+    forHer: t?.forHer === true,
+    done: false,
+  })).filter(t => t.label);
+
+  const later = (Array.isArray(o.later) ? o.later : [])
+    .map(String).map(s => s.trim()).filter(Boolean).slice(0, 8);
+
+  const cards = [];
+  if (tasks.length) cards.push({type: 'tasks', items: tasks});
+  if (later.length) cards.push({type: 'later', items: later});
+
+  return {turn: {say: typeof o.say === 'string' ? o.say : '', cards}, remember: o.remember ?? {}};
 }
 
-async function plan(braindump, lang) {
+async function ask(braindump, lang) {
   const apiKey = process.env[P.key];
   if (!apiKey) throw new Error(`缺少 ${P.key}`);
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
@@ -81,7 +119,7 @@ async function plan(braindump, lang) {
     headers: {'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`},
     body: JSON.stringify({
       model: MODEL,
-      messages: buildMessages({braindump, now, lang}),
+      messages: buildMessages({braindump, now, lang, memory: loadMemory(), carryOver: carryOver()}),
       // 新一代推理模型只接受默认 temperature
       ...(/^(gpt-[56]|o[0-9])/.test(MODEL) ? {} : {temperature: 0.4}),
       response_format: {type: 'json_object'},
@@ -91,7 +129,17 @@ async function plan(braindump, lang) {
 
   const raw = (await r.json()).choices?.[0]?.message?.content ?? '';
   const body = raw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? raw;
-  return normalize(JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1)));
+  return toTurn(JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1)));
+}
+
+/** 记忆也是一张卡片——她得看得见 Today 记住了什么，才谈得上信任。 */
+function memoryCard(m) {
+  const items = [
+    ...(m.people ?? []).map(p => ({id: `p:${p.name}`, text: `${p.name} — ${p.who}`})),
+    ...(m.rhythms ?? []).map(s => ({id: `r:${s}`, text: s})),
+    ...(m.hers ?? []).map(s => ({id: `h:${s}`, text: s})),
+  ].slice(0, 6);
+  return items.length ? {type: 'memory', items} : null;
 }
 
 const json = (res, code, obj) => {
@@ -114,46 +162,60 @@ createServer(async (req, res) => {
     return res.end();
   }
 
-  // 手机页
   if (url.pathname === '/' || url.pathname === '/index.html') {
     res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
     return res.end(readFileSync(join(HERE, 'phone.html')));
   }
 
-  // 手机说了一段话
   if (url.pathname === '/braindump' && req.method === 'POST') {
     try {
       const {braindump, lang} = JSON.parse(await readBody(req));
       if (!braindump?.trim()) return json(res, 400, {error: '空的'});
-      // 语言由手机页决定，一路传到 agent：英文界面就出英文计划。
-      const p = await plan(braindump, lang === 'zh' ? 'zh' : 'en');
-      savePlan({...p, date: todayKey(), at: new Date().toISOString()});
-      console.log(`[${new Date().toLocaleTimeString('zh-CN')}] 排好 ${p.focus.length} 件，给她自己的 ${p.focus.filter(t => t.forHer).length} 件`);
-      return json(res, 200, p);
+      const L = lang === 'zh' ? 'zh' : 'en';
+
+      const {turn, remember} = await ask(braindump, L);
+      const mem = mergeMemory(loadMemory(), remember);
+      writeJSON(MEM_FILE, mem);
+      writeJSON(dayFile(dayKey()), {...turn, date: dayKey(), at: new Date().toISOString()});
+
+      const n = turn.cards.find(c => c.type === 'tasks')?.items.length ?? 0;
+      const kept = mem.people.length + mem.rhythms.length + mem.carrying.length + mem.hers.length + mem.notes.length;
+      console.log(`[${new Date().toLocaleTimeString('zh-CN')}] 排了 ${n} 件 · 记着 ${kept} 条`);
+      return json(res, 200, turn);
     } catch (e) {
       console.error('失败：', e.message);
       return json(res, 500, {error: String(e.message || e)});
     }
   }
 
-  // 电视轮询
-  if (url.pathname === '/plan') {
-    return json(res, 200, loadPlan() ?? {greeting: '', focus: [], later: []});
+  // 电视要的：Today 这次开口 + 它记着什么
+  if (url.pathname === '/turn') {
+    const d = loadDay();
+    const base = d ? {say: d.say, cards: d.cards} : {say: '', cards: []};
+    const mc = memoryCard(loadMemory());
+    return json(res, 200, mc ? {...base, cards: [...base.cards, mc]} : base);
   }
 
-  // 电视打勾
+  if (url.pathname === '/memory') return json(res, 200, loadMemory());
+
   if (url.pathname === '/toggle' && req.method === 'POST') {
-    const {id} = JSON.parse(await readBody(req) || '{}');
-    const p = loadPlan();
-    if (!p) return json(res, 404, {error: '今天还没有计划'});
-    p.focus = p.focus.map(t => (t.id === id ? {...t, done: !t.done} : t));
-    savePlan(p);
-    return json(res, 200, p);
+    const {id} = JSON.parse((await readBody(req)) || '{}');
+    const d = loadDay();
+    if (!d) return json(res, 404, {error: '今天还没有计划'});
+    d.cards = d.cards.map(c =>
+      c.type === 'tasks'
+        ? {...c, items: c.items.map(t => (t.id === id ? {...t, done: !t.done} : t))}
+        : c,
+    );
+    writeJSON(dayFile(dayKey()), d);
+    return json(res, 200, {say: d.say, cards: d.cards});
   }
 
   json(res, 404, {error: 'not found'});
 }).listen(PORT, '0.0.0.0', () => {
-  console.log(`\nToday 本地服务已启动  ·  ${process.env.PROVIDER || 'openai'} / ${MODEL}`);
-  console.log(`  手机上打开：  http://192.168.1.243:${PORT}`);
-  console.log(`  电视取计划：  http://192.168.1.243:${PORT}/plan\n`);
+  const m = loadMemory();
+  const n = m.people.length + m.rhythms.length + m.carrying.length + m.hers.length + m.notes.length;
+  console.log(`\nToday 本地服务  ·  ${process.env.PROVIDER || 'openai'} / ${MODEL}`);
+  console.log(`  记着 ${n} 条`);
+  console.log(`  手机：http://192.168.1.243:${PORT}\n`);
 });

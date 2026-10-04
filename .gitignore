@@ -18,3 +18,6 @@ android/local.properties
 
 # 内部工作笔记，不进公开仓库
 private/
+
+# 本地预览草稿
+.preview/

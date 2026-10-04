@@ -5,15 +5,15 @@ import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
 import {daypartOf, palettes, safe, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
-import type {Plan} from './src/agent/types';
+import type {Card, Turn} from './src/agent/types';
 
 /** 本机局域网地址。上线后换成公网域名。 */
 const API = 'http://192.168.1.243:8910';
 
-const EMPTY: Plan = {greeting: '', focus: [], later: []};
-
 /** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
 const QR = 260;
+
+const EMPTY: Turn = {say: '', cards: []};
 
 export default function App() {
   // 这块屏幕要全天亮着，不能让系统屏保把它盖掉
@@ -23,26 +23,26 @@ export default function App() {
   const x = t(lang);
 
   const [now, setNow] = useState(new Date());
-  const [plan, setPlan] = useState<Plan>(EMPTY);
+  const [turn, setTurn] = useState<Turn>(EMPTY);
 
   useEffect(() => {
     const clock = setInterval(() => setNow(new Date()), 10_000);
     return () => clearInterval(clock);
   }, []);
 
-  // 手机那边说完话，这边自己就变了。
+  // 手机那边说完话，这边自己就变。
   // 轮询而不是推送：这块屏整天开着，五秒一次的代价可以忽略，
   // 换来的是没有连接状态要维护——断网恢复后自己就好了。
   useEffect(() => {
     let alive = true;
     const pull = async () => {
       try {
-        const r = await fetch(`${API}/plan`);
+        const r = await fetch(`${API}/turn`);
         if (!r.ok) return;
-        const p = (await r.json()) as Plan;
-        if (alive) setPlan(p);
+        const next = (await r.json()) as Turn;
+        if (alive) setTurn(next);
       } catch {
-        // 取不到就维持现状。不在屏幕上显示错误——
+        // 取不到就维持现状。不在屏幕上报错——
         // 一块陪着你的屏不该因为网络抖动就报警。
       }
     };
@@ -57,13 +57,26 @@ export default function App() {
   const daypart = daypartOf(now);
   const p = palettes[daypart];
 
+  const tasks = turn.cards.find(c => c.type === 'tasks');
+  const later = turn.cards.find(c => c.type === 'later');
+  const memory = turn.cards.find(c => c.type === 'memory');
+  const items = tasks?.type === 'tasks' ? tasks.items : [];
+  const left = items.filter(i => !i.done).length;
+
   const toggle = async (id: string) => {
     // 先改本地，让按下去是即时的；再回写
-    setPlan(pl => ({
-      ...pl,
-      focus: pl.focus.map(task =>
-        task.id === id ? {...task, done: !task.done} : task,
-      ),
+    setTurn(cur => ({
+      ...cur,
+      cards: cur.cards.map(c =>
+        c.type === 'tasks'
+          ? {
+              ...c,
+              items: c.items.map(i =>
+                i.id === id ? {...i, done: !i.done} : i,
+              ),
+            }
+          : c,
+      ) as Card[],
     }));
     try {
       await fetch(`${API}/toggle`, {
@@ -76,36 +89,31 @@ export default function App() {
     }
   };
 
-  const left = plan.focus.filter(task => !task.done).length;
-  const hasPlan = plan.focus.length > 0;
-
   return (
     <SafeAreaView style={[s.root, {backgroundColor: p.bg}]}>
       <StatusBar hidden />
       <View style={s.page}>
-        {/* 左栏：时间和一句话。抬头一眼就看见，不用找。 */}
+        {/* 左栏：时间，和 Today 说的话。
+            它说的话是第一人称，所以给它最大的字号——
+            这块屏上最重要的不是清单，是有人在替你记着。 */}
         <View style={s.left}>
           <Text style={[s.clock, {color: p.text}]}>{clockOf(now)}</Text>
           <Text style={[s.date, {color: p.textSoft}]}>
             {dateLineOf(now, lang)}
           </Text>
           <View style={[s.rule, {backgroundColor: p.border}]} />
-          <Text style={[s.greeting, {color: p.textSoft}]}>
-            {plan.greeting || x.empty}
-          </Text>
+          {/* TODO: 这里放 Today 的形象（AI 生成，不是手画的 SVG） */}
+          <Text style={[s.say, {color: p.text}]}>{turn.say || x.empty}</Text>
 
-          {/* 今天不做的事。
-              列出来而不是藏起来——让人放心的不是清空列表，
-              是知道什么被允许放下。所以它不可聚焦，也没有勾选框。 */}
-          {plan.later.length > 0 ? (
+          {later?.type === 'later' ? (
             <View style={s.laterBlock}>
-              <Text style={[s.laterHead, {color: p.textFaint}]}>
+              <Text style={[s.smallHead, {color: p.textFaint}]}>
                 {x.notToday}
               </Text>
-              {plan.later.slice(0, 4).map((l, i) => (
+              {later.items.slice(0, 4).map((l, i) => (
                 <Text
                   key={i}
-                  style={[s.laterItem, {color: p.textFaint}]}
+                  style={[s.smallItem, {color: p.textFaint}]}
                   numberOfLines={1}>
                   {l}
                 </Text>
@@ -114,18 +122,18 @@ export default function App() {
           ) : null}
         </View>
 
-        {/* 右栏：今天真正要做的几件 */}
+        {/* 右栏：卡片。结构化的东西走卡片，不塞进对话里让人去读。 */}
         <View style={s.right}>
-          {hasPlan ? (
+          {items.length > 0 ? (
             <>
-              <View style={s.sectionHead}>
+              <View style={s.cardHead}>
                 <Text style={[s.section, {color: p.textSoft}]}>{x.today}</Text>
                 <Text style={[s.count, {color: p.textFaint}]}>
                   {left === 0 ? x.allDone : x.leftN(left)}
                 </Text>
               </View>
 
-              {plan.focus.map((task, i) => (
+              {items.map((task, i) => (
                 <TaskRow
                   key={task.id}
                   label={task.label}
@@ -138,9 +146,26 @@ export default function App() {
                 />
               ))}
 
-              <Text style={[s.footer, {color: p.textFaint}]}>
-                {x.remoteHint}
-              </Text>
+              {/* Today 记着的。她得看得见它记住了什么，才谈得上信任。 */}
+              {memory?.type === 'memory' ? (
+                <View style={s.memBlock}>
+                  <Text style={[s.smallHead, {color: p.textFaint}]}>
+                    {x.iRemember}
+                  </Text>
+                  {memory.items.slice(0, 3).map(m => (
+                    <Text
+                      key={m.id}
+                      style={[s.smallItem, {color: p.textFaint}]}
+                      numberOfLines={1}>
+                      {m.text}
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[s.footer, {color: p.textFaint}]}>
+                  {x.remoteHint}
+                </Text>
+              )}
             </>
           ) : (
             // 空的时候不写「暂无数据」。
@@ -183,12 +208,13 @@ const s = StyleSheet.create({
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
   rule: {height: 1, width: 72, marginVertical: space.md},
-  greeting: {fontSize: type.greeting, fontWeight: '300', lineHeight: 56},
+  say: {fontSize: type.greeting, fontWeight: '300', lineHeight: 56},
   laterBlock: {marginTop: space.xl},
-  laterHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
-  laterItem: {fontSize: type.meta, lineHeight: 30},
+  memBlock: {marginTop: space.lg, paddingHorizontal: space.xs},
+  smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
+  smallItem: {fontSize: type.meta, lineHeight: 30},
   right: {flex: 1, justifyContent: 'center'},
-  sectionHead: {
+  cardHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
