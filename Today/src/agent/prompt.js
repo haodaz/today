@@ -12,18 +12,23 @@
  * 所以这里要求模型做的，大半是「不做什么」。
  */
 
+import {DIMENSIONS, render as renderMemory} from './memory.js';
+
+/** 维度说明直接从 memory.js 生成，不手写两遍。 */
+const dimList = zh =>
+  DIMENSIONS.map(d =>
+    `- ${d.key}：${d.hint}` +
+    (d.ttlDays
+      ? (zh ? `（${d.ttlDays} 天后会被标成「可能已经过去」）` : ` (marked stale after ${d.ttlDays} days)`)
+      : (zh ? '（不会过期）' : ' (never expires)')),
+  ).join('\n');
+
 const SHAPE = `{
   "say": "...",
   "focus": [{"id":"1","label":"...","note":"生活锚点","forHer":false,"done":false}],
   "later": ["...", "..."],
   "draft": "只有 write 模式才填，别的模式留空",
-  "remember": {
-    "people":   [{"name":"...","who":"..."}],
-    "rhythms":  ["..."],
-    "carrying": ["..."],
-    "hers":     ["..."],
-    "notes":    ["..."]
-  }
+  "remember": { "维度名": ["一条短句"] }
 }`;
 
 export const SYSTEM_ZH = `
@@ -94,15 +99,16 @@ say 里不许出现字段名。later、focus、forHer、done 这些是我们之�
 把最不要紧的那件挪到 later，并在 say 里说一声你挪了什么。
 
 六、记住东西（remember 字段）。
-你是会记事的，所以从她的话里把值得长期留着的捡出来。只捡新的、确定的：
-- people：她生活里的人。谁是谁。（名字 + 一句话说明）
-- rhythms：反复出现的节奏。「周三交学校表格」「周二倒垃圾」
-- carrying：她一直往后推的事。不是用来追责，是下次好判断什么该放下
-- hers：她为自己做的事。下次好替她留位置
-- notes：别的值得留着的
+你是会记事的，所以从她的话里把值得长期留着的捡出来，按维度分。
+维度和它们的效期见下面那段「可以记的维度」。
 
-没有就给空数组。不要把一次性的事写进 rhythms。不要猜，她没说的别记。
-已经记过的别重复（我会把现有记忆给你看）。
+只捡新的、确定的。没有就给空对象 {}。
+不要猜，她没说的别记。已经记过的别重复（我会把现有的给你看）。
+
+两条最容易记错的：
+- 一次性的事不要记进「一天的样子」。那里只放反复出现的节奏。
+- 过敏、忌口、吃药、医生交代的话，一律进「要紧的叮嘱」。
+  那一类永不过期——过期的安全提醒比没有提醒更危险。
 
 七、绝对不做的事：
 - 不推荐任何商品、服务、课程、App
@@ -192,17 +198,18 @@ What to do:
    what you moved.
 
 6. Remember things (the "remember" field).
-   You keep things, so pick out what is worth holding long-term. Only what is new and certain:
-   - people: who is who in her life (name + one line)
-   - rhythms: things that recur — "school forms are due Wednesdays", "bins go out Tuesday"
-   - carrying: what she keeps deferring — not to hold against her, but so you know later
-     what is safe to put down
-   - hers: things she does for herself, so you can keep room for them next time
-   - notes: anything else worth keeping
+   Pick out what is worth holding long-term, filed by dimension.
+   The dimensions and their expiry are listed under "dimensions you can file under".
 
-   Empty arrays when there is nothing. Never file a one-off as a rhythm. Never guess —
-   if she didn't say it, don't keep it. Don't repeat what is already remembered
-   (the current memory will be shown to you).
+   Only what is new and certain. Empty object {} when there is nothing.
+   Never guess. Never repeat what is already remembered (it will be shown to you).
+
+   The two easiest mistakes:
+   - A one-off does not go under the daily-shape dimension. That is only for
+     things that recur.
+   - Allergies, foods to avoid, medication, anything a doctor said — always file
+     under the standing-instructions dimension. That one never expires:
+     a safety note that quietly expires is worse than no note at all.
 
 7. Never:
    - recommend any product, service, course or app
@@ -258,7 +265,8 @@ export function buildMessages(req) {
   const parts = [
     zh ? `现在是 ${req.now}。` : `It is ${req.now}.`,
     req.mode && modes[req.mode] ? modes[req.mode] : '',
-    memoryBlock(req.memory, zh),
+    (zh ? '可以记的维度：\n' : 'Dimensions you can file under:\n') + dimList(zh),
+    renderMemory(req.memory, zh),
     currentBlock(req.current, zh),
     req.carryOver?.length
       ? zh

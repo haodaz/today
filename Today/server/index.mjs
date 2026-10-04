@@ -18,6 +18,7 @@ import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
 import {converseJSON, DEFAULT_MODEL as BEDROCK_DEFAULT} from './bedrock.mjs';
+import {merge as mergeMem, forDisplay, count as memCount, EMPTY as EMPTY_MEM} from '../src/agent/memory.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -67,8 +68,29 @@ const readJSON = (f, fallback) => {
 };
 const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
 
-const EMPTY_MEMORY = {people: [], rhythms: [], carrying: [], hers: [], notes: [], updatedAt: ''};
-const loadMemory = () => readJSON(MEM_FILE, EMPTY_MEMORY);
+/**
+ * 读记忆。旧文件是扁平的五类，迁进维度。
+ * 迁移时给一个三十天前的 at —— 旧数据本来就该先被确认一遍再用。
+ */
+function loadMemory() {
+  const m = readJSON(MEM_FILE, null);
+  if (!m) return EMPTY_MEM;
+  if (m.facts) return m;
+  const old = new Date(Date.now() - 30 * 86400000).toISOString();
+  const map = {
+    people: '家里人', rhythms: '一天的样子',
+    carrying: '一直推着的', hers: '她自己', notes: '要紧的叮嘱',
+  };
+  const facts = {};
+  for (const [k, dim] of Object.entries(map)) {
+    const list = (m[k] ?? []).map(v =>
+      typeof v === 'string' ? v : `${v.name} — ${v.who}`);
+    if (list.length) facts[dim] = list.map(text => ({text, at: old}));
+  }
+  const out = {facts, updatedAt: m.updatedAt || old};
+  writeJSON(MEM_FILE, out);
+  return out;
+}
 
 /**
  * 一天的文件现在存的是整条对话，不是一次 turn。
@@ -104,29 +126,6 @@ function carryOver() {
   const y = new Date(Date.now() - 86400000);
   const t = latestTasks(loadDay(dayKey(y)));
   return (t?.card.items ?? []).filter(i => !i.done).map(i => i.label);
-}
-
-/**
- * 合并记忆。只增不删，去重，各类有上限——
- * 记忆无限增长会把上下文撑爆，也会让它记住一堆早就不成立的事。
- */
-const CAPS = {people: 12, rhythms: 10, carrying: 10, hers: 10, notes: 16};
-function mergeMemory(cur, add) {
-  const out = {...cur};
-  const key = v => (typeof v === 'string' ? v.trim() : `${v?.name ?? ''}`.trim());
-  for (const k of Object.keys(CAPS)) {
-    const seen = new Set((cur[k] ?? []).map(key).filter(Boolean));
-    const fresh = (add?.[k] ?? []).filter(v => {
-      const s = key(v);
-      if (!s || seen.has(s)) return false;
-      seen.add(s);
-      return true;
-    });
-    // 新的放前面：近期的事更可能还成立
-    out[k] = [...fresh, ...(cur[k] ?? [])].slice(0, CAPS[k]);
-  }
-  out.updatedAt = new Date().toISOString();
-  return out;
 }
 
 /**
@@ -281,14 +280,22 @@ async function greet(lang) {
   return {say};
 }
 
-/** 记忆也是一张卡片——她得看得见 Today 记住了什么，才谈得上信任。 */
+/**
+ * 记忆卡。她得看得见 Today 记住了什么，才谈得上信任，也才能纠正。
+ * 带「多久以前」和是否已旧——时间是这张卡最要紧的一列。
+ */
 function memoryCard(m) {
-  const items = [
-    ...(m.people ?? []).map(p => ({id: `p:${p.name}`, text: `${p.name} — ${p.who}`})),
-    ...(m.rhythms ?? []).map(s => ({id: `r:${s}`, text: s})),
-    ...(m.hers ?? []).map(s => ({id: `h:${s}`, text: s})),
-  ].slice(0, 6);
-  return items.length ? {type: 'memory', items} : null;
+  const groups = forDisplay(m);
+  const items = groups.flatMap(g =>
+    g.items.map(i => ({
+      id: `${g.key}:${i.text}`,
+      dim: g.key,
+      text: i.text,
+      days: i.days,
+      stale: i.stale,
+    })),
+  );
+  return items.length ? {type: 'memory', items, groups} : null;
 }
 
 const json = (res, code, obj) => {
@@ -384,7 +391,7 @@ createServer(async (req, res) => {
 
       const before = currentPlan();
       const {turn, remember} = await ask(braindump, L, M);
-      const mem = mergeMemory(loadMemory(), remember);
+      const mem = mergeMem(loadMemory(), remember);
       writeJSON(MEM_FILE, mem);
       // 这一轮到底改了什么。界面上那行提示要说得出内容，
       // 不能只说「更新了」——那等于没说。
@@ -394,7 +401,7 @@ createServer(async (req, res) => {
       });
 
       const n = turn.cards.find(c => c.type === 'tasks')?.items.length ?? 0;
-      const kept = mem.people.length + mem.rhythms.length + mem.carrying.length + mem.hers.length + mem.notes.length;
+      const kept = memCount(mem);
       console.log(`[${new Date().toLocaleTimeString('zh-CN')}] 排了 ${n} 件 · 记着 ${kept} 条`);
       return json(res, 200, day);
     } catch (e) {
@@ -494,10 +501,9 @@ createServer(async (req, res) => {
 
   json(res, 404, {error: 'not found'});
 }).listen(PORT, '0.0.0.0', () => {
-  const m = loadMemory();
-  const n = m.people.length + m.rhythms.length + m.carrying.length + m.hers.length + m.notes.length;
   console.log(`\nToday 本地服务  ·  ${CHAIN[0]} / ${MODEL}` +
     (CHAIN.length > 1 ? `  （兜底：${CHAIN.slice(1).join(' → ')}）` : ''));
+  console.log(`  记着 ${memCount(loadMemory())} 条`);
   for (const n of CHAIN) {
     const p = PROVIDERS[n];
     if (p.bedrock) {
@@ -507,6 +513,5 @@ createServer(async (req, res) => {
       console.log(`  ⚠️  ${n}：缺 ${p.key}`);
     }
   }
-  console.log(`  记着 ${n} 条`);
   console.log(`  手机：http://192.168.1.243:${PORT}\n`);
 });

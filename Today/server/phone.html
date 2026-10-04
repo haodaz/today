@@ -229,6 +229,13 @@
     border:1px solid var(--line);border-radius:19px;padding:6px;box-shadow:var(--shadow);
   }
   .empty{color:var(--faint);font-size:15px;padding:12px 6px}
+  .fact{display:flex;gap:10px;align-items:baseline;padding:10px 12px}
+  .fact + .fact{border-top:1px solid var(--line)}
+  .ft{flex:1;font-size:15.5px;line-height:1.45}
+  .fa{flex:0 0 auto;font-size:12px;color:var(--faint)}
+  /* 旧到该先确认一句的那些：整行淡下去，时间那列说明原因 */
+  .fact.stale .ft{color:var(--faint)}
+  .fact.stale .fa{color:var(--ember)}
 
   /* ── 底部输入条 ── */
   footer{flex:0 0 auto;padding:6px 16px max(13px,env(safe-area-inset-bottom))}
@@ -328,6 +335,7 @@ const DICT = {
        hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
        quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
        updated:'更新了', history:'今天聊过的', noHistory:'还没有别的对话',
+       today:'今天', yday:'昨天', daysAgo:d=>`${d} 天前`, stale:'要确认一下',
        cAdd:n=>`记上 ${n}`, cDone:n=>`${n} 做完了`,
        cMoved:n=>`${n} 挪到以后`, cKept:n=>`收着 ${n}`,
        statLeft:n=>`今天还剩 ${n} 件`, statDone:'今天的事都做完了',
@@ -349,6 +357,7 @@ const DICT = {
        hearing:'Listening…', taking:'Taking that in…', lead:"I'm keeping these for you today",
        quiet:"I'm holding these", remember:'I also remember', err:"Didn't work: ",
        updated:'updated', history:'Earlier today', noHistory:'No other conversations',
+       today:'today', yday:'yesterday', daysAgo:d=>`${d}d ago`, stale:'worth checking',
        cAdd:n=>`added ${n}`, cDone:n=>`${n} done`,
        cMoved:n=>`moved ${n} off today`, cKept:n=>`holding ${n}`,
        statLeft:n=>`${n} left today`, statDone:'All done today',
@@ -480,7 +489,6 @@ function setTab(next) {
   tab = next;
   $('tabToday').classList.toggle('on', next === 'today');
   $('tabTodo').classList.toggle('on', next === 'todo');
-  $('dot').classList.toggle('show', true);
   $('foot').hidden = next !== 'today';
   draw();
 }
@@ -642,11 +650,21 @@ function drawTodo(box) {
     for (const s of later.items) { const c = el('chip','span'); c.textContent = s; ch.appendChild(c); }
     p.appendChild(ch);
   }
-  if (day.memory?.items?.length) {
-    head(X.remember);
-    const ch = el('chips');
-    for (const m of day.memory.items) { const c = el('chip','span'); c.textContent = m.text; ch.appendChild(c); }
-    p.appendChild(ch);
+  // 记忆按维度分组。时间是这里最要紧的一列——
+  // 她得看得出哪条是旧的，才谈得上纠正。
+  for (const g of day.memory?.groups ?? []) {
+    head(g.key);
+    const f = el('flat');
+    for (const i of g.items) {
+      const row = el('fact' + (i.stale ? ' stale' : ''));
+      const t = el('ft'); t.textContent = i.text;
+      const a = el('fa');
+      a.textContent = i.stale ? X.stale
+        : i.days === 0 ? X.today : i.days === 1 ? X.yday : X.daysAgo(i.days);
+      row.append(t, a);
+      f.appendChild(row);
+    }
+    p.appendChild(f);
   }
   box.appendChild(p);
 }
