@@ -39,7 +39,9 @@
     }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;overscroll-behavior:none}
+  /* iOS Safari 弹出键盘时 layout viewport 不变，收起后也不复位，
+     于是页面底下留一块白、内容还溢出。用 visualViewport 的实际高度顶上去。 */
+  html,body{margin:0;height:var(--vh,100%);overscroll-behavior:none}
   body{
     color:var(--ink);
     font:400 17px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;
@@ -66,19 +68,54 @@
     color:var(--faint);transition:color .2s;
   }
   nav button.on{color:var(--ink)}
-  nav .dot{
-    width:5px;height:5px;border-radius:50%;background:var(--ember);
-    align-self:center;opacity:0;transition:opacity .25s;
+  nav .grow{flex:1}
+  nav .icon{padding:6px;display:grid;place-items:center;color:var(--faint)}
+  nav .icon svg{width:21px;height:21px;fill:none;stroke:currentColor;
+    stroke-width:2;stroke-linecap:round}
+  nav .icon:active{color:var(--ink)}
+
+  /* 历史：从左边滑出的一层，不是另一个页面 */
+  .sheet{position:fixed;inset:0;z-index:40;display:flex}
+  .sheetbg{position:absolute;inset:0;background:rgba(28,26,42,.26);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:fade .2s}
+  @keyframes fade{from{opacity:0}}
+  .sheetbody{
+    position:relative;width:76%;max-width:320px;height:100%;
+    background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(1.7);
+    backdrop-filter:blur(26px) saturate(1.7);
+    border-right:1px solid var(--line);
+    padding:max(18px,env(safe-area-inset-top)) 16px 20px;
+    overflow-y:auto;animation:slide .26s cubic-bezier(.2,.7,.3,1);
   }
-  nav .dot.show{opacity:1}
+  @keyframes slide{from{transform:translateX(-14px);opacity:.4}}
+  .sheeth{margin:4px 6px 12px;font-size:11.5px;letter-spacing:.16em;
+    color:var(--faint);font-weight:600}
+  .thread{
+    padding:12px 14px;border-radius:15px;margin-bottom:7px;
+    background:rgba(255,255,255,.5);border:1px solid var(--line);
+  }
+  @media (prefers-color-scheme: dark){ .thread{background:rgba(255,255,255,.05)} }
+  .thread .t1{font-size:15px;font-weight:500;line-height:1.4}
+  .thread .t2{font-size:12.5px;color:var(--faint);margin-top:3px}
 
   /* ── 形象：启动时顶部居中 ── */
+  /* 打开时的 launch：形象居中 + 它先说一句 + 今天的现状。
+     她一开口就收起来，把地方让给对话。 */
   .stage{
-    flex:0 0 auto;display:grid;place-items:center;
-    padding:2px 0 0;transition:height .5s cubic-bezier(.3,.8,.3,1), opacity .4s;
-    overflow:hidden;height:172px;
+    flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
+    padding:6px 24px 0;transition:height .45s cubic-bezier(.3,.8,.3,1), opacity .35s;
+    overflow:hidden;height:auto;
   }
   .stage.small{height:0;opacity:0;padding:0}
+  .hi{font-size:21px;font-weight:400;line-height:1.45;text-align:center;
+    margin:10px 0 0;max-width:19em}
+  .hi.pending{color:var(--faint)}
+  .stat{display:flex;gap:7px;margin:14px 0 2px;flex-wrap:wrap;justify-content:center}
+  .stat span{
+    font-size:13px;color:var(--soft);background:var(--glass);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    border:1px solid var(--line);border-radius:999px;padding:6px 13px;
+  }
   .tiger{
     width:150px;height:auto;
     filter:drop-shadow(0 12px 24px rgba(107,92,231,.22));
@@ -192,13 +229,30 @@
 <body>
 
 <nav>
+  <button class="icon" id="menu" aria-label="history">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+  </button>
   <button id="tabToday" class="on">Today</button>
-  <span class="dot" id="dot"></span>
   <button id="tabTodo">Todo</button>
+  <span class="grow"></span>
+  <button class="icon" id="fresh" aria-label="new">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
 </nav>
+
+<!-- 对话历史。她不需要永远看着历史，但历史不能丢。 -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheetbg" id="sheetbg"></div>
+  <div class="sheetbody">
+    <p class="sheeth" id="sheeth"></p>
+    <div id="threads"></div>
+  </div>
+</div>
 
 <div class="stage" id="stage">
   <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
+  <p class="hi pending" id="hi"></p>
+  <div class="stat" id="stat"></div>
 </div>
 
 <main id="scroll"></main>
@@ -222,25 +276,51 @@
 
 <script>
 const $ = id => document.getElementById(id);
+
+/* 键盘弹出/收起时把真实可视高度写进 --vh，页面跟着它走 */
+const vv = window.visualViewport;
+const syncVH = () => {
+  document.documentElement.style.setProperty('--vh', `${(vv?.height ?? window.innerHeight)}px`);
+};
+syncVH();
+vv?.addEventListener('resize', syncVH);
+vv?.addEventListener('scroll', syncVH);
+window.addEventListener('orientationchange', () => setTimeout(syncVH, 250));
 const DICT = {
   zh: {today:'今天', todo:'待办', ph:'说点什么，或者按右边说话', drop:'算了',
        hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
        quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
-       updated:'（这张卡更新了）',
-       noMic:'这台设备不让网页用麦克风，直接打字吧。', none:'今天还没有事。'},
+       updated:'（这张卡更新了）', history:'今天聊过的', noHistory:'还没有别的对话',
+       statLeft:n=>`今天还剩 ${n} 件`, statDone:'今天的事都做完了',
+       statNone:'今天还没有事', statKept:n=>`先收着 ${n} 件`, statMem:n=>`记着 ${n} 条`,
+       noMic:'这个浏览器不支持录音，直接打字吧。',
+       insecure:'要从 https 地址打开才能用麦克风。现在这个是 http，浏览器不给权限。',
+       denied:'麦克风被挡住了。到浏览器设置里允许这个网站用麦克风。',
+       noDevice:'没找到麦克风。',
+       tooShort:'太短了，没听清。',
+       maxLen:'录到一分钟，先停下了。',
+       none:'今天还没有事。'},
   en: {today:'Today', todo:'Todo', ph:'Type, or hold the mic', drop:'Never mind',
        hearing:'Listening…', taking:'Taking that in…', lead:"I'm keeping these for you today",
        quiet:"I'm holding these", remember:'I also remember', err:"Didn't work: ",
-       updated:'(card updated)',
-       fallback:"I'm here.", noMic:"This device won't give the page a microphone. Type instead.",
+       updated:'(card updated)', history:'Earlier today', noHistory:'No other conversations',
+       statLeft:n=>`${n} left today`, statDone:'All done today',
+       statNone:'Nothing yet today', statKept:n=>`${n} held`, statMem:n=>`${n} remembered`,
+       fallback:"I'm here.",
+       noMic:"This browser can't record. Type instead.",
+       insecure:'Open the https address to use the mic. This one is http, so the browser blocks it.',
+       denied:'Microphone is blocked. Allow this site to use it in your browser settings.',
+       noDevice:'No microphone found.',
+       tooShort:"That was too short to hear.",
+       maxLen:'Stopped at one minute.',
        none:'Nothing yet today.'},
 };
 /* UI 语言默认跟设备，但如果当天的对话已经是中文，就跟着对话走——
    卡片引导语是英文、里面的事情是中文，看着是两个人在说话。 */
 let LANG = (navigator.language||'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
 let X = DICT[LANG];
-const relang = () => {
-  const text = (day.messages ?? []).map(m => m.text || '').join('');
+const relang = (extra = '') => {
+  const text = (day.messages ?? []).map(m => m.text || '').join('') + extra;
   const next = /[\u4e00-\u9fa5]/.test(text) ? 'zh' : LANG;
   if (next === LANG) return;
   LANG = next; X = DICT[LANG];
@@ -267,13 +347,40 @@ const el = (cls, tag='div') => { const e=document.createElement(tag); e.classNam
 (async () => {
   try { day = await (await fetch('/day')).json(); } catch {}
   draw();
-  if (!day.messages?.length) {
-    try {
-      const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
-      bubble('today', say || X.fallback);
-    } catch { bubble('today', X.fallback); }
-  }
+  await openLaunch();
 })();
+
+/** launch：形象 + 它先说一句 + 今天的现状。不在对话流里，是一屏问候。 */
+async function openLaunch() {
+  relang();
+  try {
+    const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
+    $('hi').textContent = say || X.fallback;
+  } catch { $('hi').textContent = X.fallback; }
+  $('hi').classList.remove('pending');
+  // 招呼可能是中文而设备是英文——拿到之后再判一次语言
+  relang($('hi').textContent);
+  drawStat();
+}
+
+function drawStat() {
+  const tasks = cardOf('tasks');
+  const later = cardOf('later');
+  const left = (tasks?.items ?? []).filter(i => !i.done).length;
+  const bits = [];
+  if (!tasks?.items.length) bits.push(X.statNone);
+  else bits.push(left === 0 ? X.statDone : X.statLeft(left));
+  if (later?.items.length) bits.push(X.statKept(later.items.length));
+  if (day.memory?.items?.length) bits.push(X.statMem(day.memory.items.length));
+  $('stat').innerHTML = '';
+  for (const b of bits) {
+    const e = document.createElement('span'); e.textContent = b; $('stat').appendChild(e);
+  }
+}
+
+/** 当天最后一张某类卡。 */
+const cardOf = type => [...(day.messages ?? [])].reverse()
+  .flatMap(m => m.cards ?? []).find(c => c.type === type);
 
 function setTab(next) {
   tab = next;
@@ -286,13 +393,54 @@ function setTab(next) {
 $('tabToday').onclick = () => setTab('today');
 $('tabTodo').onclick = () => setTab('todo');
 
-/** 她说过话之后，形象收起，把地方让给对话。 */
+/** 开一段新的。卡片不动——今天要做的事不随对话段落重置。 */
+$('fresh').onclick = async () => {
+  try { day = await (await fetch('/new', {method:'POST'})).json(); } catch { return; }
+  setTab('today');
+  $('stage').classList.remove('small');
+  await openLaunch();
+};
+
+$('menu').onclick = async () => {
+  $('sheeth').textContent = X.history;
+  const box = $('threads');
+  box.innerHTML = '';
+  let list = [];
+  try { list = (await (await fetch('/threads')).json()).threads ?? []; } catch {}
+  if (!list.length) {
+    const e = el('empty'); e.textContent = X.noHistory; box.appendChild(e);
+  }
+  for (const t of list) {
+    const e = el('thread');
+    const a = el('t1'); a.textContent = t.first || '…';
+    const b = el('t2');
+    b.textContent = new Date(t.at).toLocaleTimeString(LANG === 'zh' ? 'zh-CN' : 'en-US',
+      {hour: 'numeric', minute: '2-digit'}) + ' · ' + t.n;
+    e.append(a, b);
+    e.onclick = async () => {
+      try {
+        const {messages} = await (await fetch(`/thread?i=${t.i}`)).json();
+        day = {...day, messages};
+        closeSheet();
+        setTab('today');
+        $('stage').classList.add('small');
+      } catch {}
+    };
+    box.appendChild(e);
+  }
+  $('sheet').hidden = false;
+};
+const closeSheet = () => { $('sheet').hidden = true; };
+$('sheetbg').onclick = closeSheet;
+
+/** 她一开口，launch 收起，把地方让给对话。 */
 const settle = () => $('stage').classList.toggle('small',
   tab === 'todo' || (day.messages ?? []).some(m => m.who === 'her'));
 
 function draw() {
   relang();
   settle();
+  if (!$('stage').classList.contains('small')) drawStat();
   const box = $('scroll');
   box.innerHTML = '';
   tab === 'today' ? drawChat(box) : drawTodo(box);
@@ -413,7 +561,17 @@ function bubble(who, text, pending) {
 
 /* ── 录音 ──────────────────────────────────── */
 let rec = null, chunks = [], meter = null;
+const MAX_MS = 60_000;
+let maxTimer = null;
+
 $('mic').onclick = async () => {
+  /* getUserMedia 只在安全上下文下可用。从 http://192.168.x.x 打开时
+     浏览器连权限框都不弹，直接拒绝——所以要在调用之前就说清楚，
+     不然用户看到的是一句含糊的「设备不支持」，其实只是地址不对。 */
+  if (!window.isSecureContext) { showErr(X.insecure); $('t').focus(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    showErr(X.noMic); $('t').focus(); return;
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
     const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4']
@@ -423,15 +581,31 @@ $('mic').onclick = async () => {
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
+      clearTimeout(maxTimer); maxTimer = null;
       meter?.ctx.close().catch(()=>{}); meter = null; $('lv').style.width = '0%';
-      sendAudio(new Blob(chunks, {type: rec.mimeType || 'audio/webm'}));
+      const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'});
+      $('recbar').hidden = true; $('bar').hidden = false;
+      // 太短多半是误触，不值得发一趟请求
+      if (blob.size < 1200) { showErr(X.tooShort); rec = null; return; }
+      sendAudio(blob);
     };
     rec.start(); level(stream);
+    maxTimer = setTimeout(() => {
+      if (rec?.state === 'recording') { showErr(X.maxLen); rec.stop(); }
+    }, MAX_MS);
     $('bar').hidden = true; $('recbar').hidden = false; $('err').hidden = true;
-  } catch { showErr(X.noMic); $('t').focus(); }
+  } catch (e) {
+    // 分清是被拒、没设备、还是别的——含糊的错让人不知道该做什么
+    const n = e?.name;
+    showErr(n === 'NotAllowedError' || n === 'SecurityError' ? X.denied
+          : n === 'NotFoundError' ? X.noDevice
+          : (e?.message || X.noMic));
+    $('t').focus();
+  }
 };
 $('stop').onclick = () => rec?.state === 'recording' && rec.stop();
 $('drop').onclick = () => {
+  clearTimeout(maxTimer); maxTimer = null;
   if (rec?.state === 'recording') { chunks = []; rec.onstop = null; rec.stop(); }
   meter?.ctx.close().catch(()=>{}); meter = null; rec = null;
   $('recbar').hidden = true; $('bar').hidden = false;
@@ -452,7 +626,6 @@ function level(stream) {
   } catch {}
 }
 async function sendAudio(blob) {
-  $('recbar').hidden = true; $('bar').hidden = false;
   const note = bubble('today', X.taking, true); thinking(true);
   try {
     const r = await fetch('/transcribe', {method:'POST',

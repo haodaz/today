@@ -79,9 +79,9 @@ const loadDay = (k = dayKey()) => {
   const d = readJSON(dayFile(k), null);
   if (!d) return null;
   // 兼容早期只存一次 turn 的文件
-  if (!d.messages) return {date: d.date, messages: d.say || d.cards?.length
+  if (!d.messages) return {date: d.date, threads: [], messages: d.say || d.cards?.length
     ? [{who: 'today', text: d.say ?? '', cards: d.cards ?? [], at: d.at}] : []};
-  return d;
+  return {threads: [], ...d};
 };
 const saveDay = d => writeJSON(dayFile(dayKey()), d);
 const appendMessage = m => {
@@ -400,6 +400,45 @@ createServer(async (req, res) => {
   // 对外地址。隧道地址每次重启会变，所以不写死在 app 里，由服务端告知。
   if (url.pathname === '/where') {
     return json(res, 200, {url: process.env.PUBLIC_URL || ''});
+  }
+
+  /**
+   * 开一段新对话。
+   *
+   * 当前这段收进 threads，messages 清空——卡片不动，
+   * 因为「今天要做的事」不随对话段落重置。
+   * 她不需要永远看着历史，但历史不能丢。
+   */
+  if (url.pathname === '/new' && req.method === 'POST') {
+    const d = loadDay() ?? {date: dayKey(), threads: [], messages: []};
+    if (d.messages.length) {
+      d.threads.push({at: d.messages[0].at, messages: d.messages});
+      d.messages = [];
+      saveDay(d);
+    }
+    return json(res, 200, {...d, memory: memoryCard(loadMemory())});
+  }
+
+  /** 今天之前那几段对话的目录，只给首句和时间——列表不需要全文。 */
+  if (url.pathname === '/threads') {
+    const d = loadDay();
+    return json(res, 200, {
+      threads: (d?.threads ?? []).map((t, i) => ({
+        i,
+        at: t.at,
+        first: t.messages.find(m => m.who === 'her')?.text
+            ?? t.messages[0]?.text ?? '',
+        n: t.messages.length,
+      })).reverse(),
+    });
+  }
+
+  /** 取某一段历史对话的全文。 */
+  if (url.pathname === '/thread') {
+    const i = Number(url.searchParams.get('i'));
+    const t = loadDay()?.threads?.[i];
+    if (!t) return json(res, 404, {error: 'no such thread'});
+    return json(res, 200, {messages: t.messages});
   }
 
   if (url.pathname === '/memory') return json(res, 200, loadMemory());
