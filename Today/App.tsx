@@ -218,7 +218,9 @@ const s = StyleSheet.create({
     paddingHorizontal: safe.h,
     paddingVertical: safe.v,
   },
-  left: {width: '38%', justifyContent: 'center', paddingRight: space.lg},
+  // 内容比容器高时，居中会上下同时溢出——时间会被切掉顶。
+  // 改成顶部对齐，并给整列留出余量。
+  left: {width: '38%', justifyContent: 'flex-start', paddingRight: space.lg, paddingTop: space.sm},
   clock: {
     fontSize: type.clock,
     fontWeight: '300',
@@ -226,12 +228,14 @@ const s = StyleSheet.create({
     lineHeight: type.clock * 1.05,
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
-  rule: {height: 1, width: 72, marginVertical: space.md},
-  voice: {flexDirection: 'row', alignItems: 'flex-start'},
-  // 老虎不要太大——它是陪着的，不是主角。主角是她今天要过的日子。
-  tiger: {width: 108, height: 104, marginRight: space.md, marginTop: 2},
-  say: {flex: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 56},
-  laterBlock: {marginTop: space.xl},
+  rule: {height: 1, width: 72, marginVertical: space.sm},
+  // 老虎在话的上面，不在旁边——并排会把文字挤窄，一句话从三行变五行，
+  // 整列就撑出屏幕了。而且先看见它、再听见它说话，顺序也对。
+  voice: {alignItems: 'flex-start'},
+  // 不要太大。它是陪着的，不是主角；主角是她今天要过的日子。
+  tiger: {width: 84, height: 80, marginBottom: space.xs},
+  say: {fontSize: type.greeting, fontWeight: '300', lineHeight: 52},
+  laterBlock: {marginTop: space.lg},
   memBlock: {marginTop: space.lg, paddingHorizontal: space.xs},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
   smallItem: {fontSize: type.meta, lineHeight: 30},

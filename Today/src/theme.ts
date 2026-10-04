@@ -93,7 +93,7 @@ export const palettes: Record<Daypart, Palette> = {
  * 最小字号 20，正文 34。
  */
 export const type = {
-  clock: 104,
+  clock: 92,
   greeting: 44,
   task: 34,
   section: 22,
