@@ -6,6 +6,8 @@ type Props = {
   label: string;
   note?: string;
   done: boolean;
+  /** 这件是给她自己的。整个产品里唯一需要被保护的字段。 */
+  forHer?: boolean;
   daypart: Daypart;
   autoFocus?: boolean;
   onToggle: () => void;
@@ -22,6 +24,7 @@ export function TaskRow({
   label,
   note,
   done,
+  forHer,
   daypart,
   autoFocus,
   onToggle,
@@ -59,7 +62,6 @@ export function TaskRow({
             backgroundColor: focused ? p.surfaceFocused : p.surface,
             borderColor: focused ? p.accent : p.border,
             borderWidth: focused ? 3 : 1,
-            // 聚焦时让这一行真的「浮起来」，三米外也看得出停在哪
             shadowColor: '#000',
             shadowOpacity: focused ? 0.1 : 0,
             shadowRadius: focused ? 24 : 0,
@@ -67,6 +69,12 @@ export function TaskRow({
             elevation: focused ? 8 : 0,
           },
         ]}>
+        {/* 「给她自己的」只用一道暖色边标出来。
+            不加徽章、不写「这件是给你的」——说出来就变成施舍了。 */}
+        {forHer ? (
+          <View style={[s.herEdge, {backgroundColor: p.accent}]} />
+        ) : null}
+
         <View
           style={[
             s.box,
@@ -109,6 +117,14 @@ const s = StyleSheet.create({
     paddingHorizontal: space.lg,
     borderRadius: 18,
     marginBottom: space.sm,
+    overflow: 'hidden',
+  },
+  herEdge: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
   },
   box: {
     width: 44,
