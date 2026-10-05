@@ -10,6 +10,7 @@ import {TaskRow} from './src/TaskRow';
 import {Detail, type DetailPayload} from './src/Detail';
 import {daypartOf, palettes, safe, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
+import {hint as wxHint, line as wxLine} from './src/agent/weather';
 import type {Card, Turn} from './src/agent/types';
 
 /**
@@ -223,6 +224,23 @@ export default function App() {
           <Text style={[s.date, {color: p.textSoft}]}>
             {dateLineOf(now, lang)}
           </Text>
+
+          {/* 天气。酒店大堂那块板子上第一样东西就是它，出门前那一眼要的也是它。
+              只给一行：几度到几度。下面那句提示只在真会改变她出门动作时才有
+              （要带伞、要加衣服），晴天二十度它自己会闭嘴。 */}
+          {turn.weather ? (
+            <View style={s.wx}>
+              <Text style={[s.wxLine, {color: p.textSoft}]}>
+                {wxLine(turn.weather, lang === 'zh')}
+              </Text>
+              {wxHint(turn.weather, lang === 'zh') ? (
+                <Text style={[s.wxHint, {color: p.warm}]} numberOfLines={1}>
+                  {wxHint(turn.weather, lang === 'zh')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <View style={[s.rule, {backgroundColor: p.border}]} />
 
           {/* Today 本人。它说的话紧跟在它下面——
@@ -391,6 +409,9 @@ const s = StyleSheet.create({
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
   rule: {height: 1, width: 44, marginVertical: space.sm},
+  wx: {marginTop: space.xs},
+  wxLine: {fontSize: type.section, letterSpacing: 0.3},
+  wxHint: {fontSize: type.meta, marginTop: 1},
   // 老虎在话的上面，不在旁边——并排会把文字挤窄，一句话从三行变五行，
   // 整列就撑出屏幕了。而且先看见它、再听见它说话，顺序也对。
   voice: {alignItems: 'flex-start'},

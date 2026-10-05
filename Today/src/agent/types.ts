@@ -48,6 +48,15 @@ export type Turn = {
    * 平时不显示——电视上只给今天这一步。这些是等她拿遥控器按进某一件事时
    * 才摊开的：她按了就是她开的口，和我们倒给她是两回事。
    */
+  /** 今天的天气。拿不到就是 null，那一行干脆不出现。 */
+  weather?: {
+    place: string;
+    kind: string;
+    now: number | null;
+    high: number | null;
+    low: number | null;
+    rainChance: number | null;
+  } | null;
   projects?: {
     id: string;
     title: string;

@@ -110,6 +110,7 @@
   .who.add{text-align:center;color:var(--ember);font-size:14px;
     background:transparent;border-style:dashed}
   .form{display:grid;gap:7px;margin:2px 0 10px}
+  .pnote{font-size:12.5px;color:var(--faint);margin:2px 2px 0;line-height:1.5}
   .form input{
     width:100%;box-sizing:border-box;padding:9px 11px;font:inherit;font-size:14px;
     border:1px solid var(--line);border-radius:11px;background:var(--glass);
@@ -341,6 +342,12 @@
   <div class="sheetbody">
     <p class="sheeth" id="famh"></p>
     <div id="family"></div>
+    <p class="sheeth" id="placeh"></p>
+    <div class="form" id="placeBox">
+      <input id="placeIn" type="text" autocomplete="address-level2">
+      <div class="frow"><button class="go" id="placeSave"></button></div>
+      <p class="pnote" id="placeNow"></p>
+    </div>
     <p class="sheeth" id="sheeth"></p>
     <div id="threads"></div>
   </div>
@@ -398,6 +405,9 @@ const DICT = {
        fBorn:'生日，写到月就行：2023-04', fAge:'只记得几岁？填数字就行',
        fNote:'一句长期成立的话：上小班、对花生过敏',
        theyHe:'他', theyShe:'她', theyNone:'先不说', fBlank:'还没填',
+       placeHead:'在哪儿', placePh:'城市就行，比如 北京 / Beijing',
+       placeSave:'存下', placeNone:'还没设。设了之后电视上会有今天的天气。',
+       placeBad:'没找到这个地方，换个写法试试',
        updated:'更新了', history:'今天聊过的', noHistory:'还没有别的对话',
        today:'今天', yday:'昨天', daysAgo:d=>`${d} 天前`, stale:'要确认一下',
        cAdd:n=>`记上 ${n}`, cDone:n=>`${n} 做完了`,
@@ -439,6 +449,9 @@ const DICT = {
        fBorn:'Born — month is enough: 2023-04', fAge:'Only know their age? Just the number',
        fNote:'One thing that stays true: nursery class, peanut allergy',
        theyHe:'he', theyShe:'she', theyNone:'rather not say', fBlank:'nothing filled in yet',
+       placeHead:'Where you are', placePh:'A town is enough — e.g. Leeds',
+       placeSave:'Save', placeNone:"Not set. Set it and the television shows today's weather.",
+       placeBad:"Couldn't find that — try another spelling",
        noMic:"This browser can't record. Type instead.",
        insecure:'Open the https address to use the mic. This one is http, so the browser blocks it.',
        denied:'Microphone is blocked. Allow this site to use it in your browser settings.',
@@ -748,9 +761,38 @@ function personForm(p) {
   return f;
 }
 
+/* 在哪儿。只到城市一级——一块客厅里的屏不需要知道她在哪条街。
+   设了之后电视上才有天气，所以这里要说清楚它有什么用。 */
+async function drawPlace() {
+  $('placeh').textContent = X.placeHead;
+  $('placeIn').placeholder = X.placePh;
+  $('placeSave').textContent = X.placeSave;
+  try {
+    const {place, weather} = await (await fetch('/place')).json();
+    $('placeIn').value = place?.name ?? '';
+    $('placeNow').textContent = weather
+      ? `${place.name} · ${Math.round(weather.low)}°–${Math.round(weather.high)}°`
+      : X.placeNone;
+  } catch { $('placeNow').textContent = X.placeNone; }
+}
+
+$('placeSave').onclick = async () => {
+  const name = $('placeIn').value.trim();
+  $('placeNow').textContent = '…';
+  try {
+    const r = await fetch('/place', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name}),
+    });
+    if (!r.ok) { $('placeNow').textContent = X.placeBad; return; }
+  } catch { $('placeNow').textContent = X.placeBad; return; }
+  drawPlace();
+};
+
 $('menu').onclick = async () => {
   famEditing = null;
   drawFamily();
+  drawPlace();
   $('sheeth').textContent = X.history;
   const box = $('threads');
   box.innerHTML = '';

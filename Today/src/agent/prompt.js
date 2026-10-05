@@ -15,6 +15,7 @@
 import {DIMENSIONS, render as renderMemory} from './memory.js';
 import {render as renderProjects} from './projects.js';
 import {render as renderPeople} from './people.js';
+import {render as renderWeather} from './weather.js';
 
 /** 维度说明直接从 memory.js 生成，不手写两遍。 */
 const dimList = zh =>
@@ -563,6 +564,9 @@ const OPEN_RULES_ZH = `
 - 不打鸡血。不用感叹号。
 - 如果今天已经有安排了，就说说此刻的状态；如果还没有，就把门打开，
   但不要命令她说话。
+- 天气只在**真会改变她出门那一下**的时候提：要带伞、孩子要加衣服、太热要备水。
+  晴天二十度不用说——「今天天气不错」是寒暄，她不需要一块屏来跟她寒暄。
+  而且天气只是修饰，不是主语：「送Coco那趟带把伞」行，「今天有雨」是在播报。
 - 下面要是写了「**一直被挤掉的（她自己的事）**」，这句话就说那一件。
   她自己的事总是排最后、总是被挤掉，没人会替她想起来。
   说你还记着，别问她为什么没去，也别催。
@@ -594,6 +598,12 @@ Rules:
 - No cheerleading. No exclamation marks.
 - If today already has a plan, speak to where things stand. If not, open the door —
   but do not order her to talk.
+- Mention the weather only when it would actually change how she walks out of the
+  door: an umbrella, a thicker coat for the child, water because it is hot.
+  Clear and twenty degrees needs no comment — "lovely day" is small talk, and she
+  does not need a screen to make small talk at her.
+  Weather is the modifier, never the subject: "take an umbrella on the school run"
+  works; "rain today" is a bulletin.
 - If "Hers, squeezed out for days" appears below, make this sentence about that one thing.
   Her own needs always go last and nobody else remembers them for her.
   Say you are still holding it. Never ask why she hasn't gone, never push.
@@ -630,6 +640,7 @@ export function buildGreeting(ctx) {
         ? `一直被挤掉的（她自己的事）：${ctx.watch.join('、')}`
         : `Hers, squeezed out for days: ${ctx.watch.join(', ')}`
       : null,
+    renderWeather(ctx.weather, zh),
     zh ? null : TRANSLATE_NOTE,
   ].filter(Boolean);
 

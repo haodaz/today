@@ -21,6 +21,7 @@ import {converseJSON, DEFAULT_MODEL as BEDROCK_DEFAULT} from './bedrock.mjs';
 import {merge as mergeMem, forDisplay, count as memCount, EMPTY as EMPTY_MEM} from '../src/agent/memory.js';
 import * as Proj from '../src/agent/projects.js';
 import * as Ppl from '../src/agent/people.js';
+import * as Wx from '../src/agent/weather.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -96,7 +97,7 @@ const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
  * 存在服务端而不是各屏自己记：她在手机上按一下，电视跟着变。
  * 录 demo 要全程英文的时候，这是唯一不用重装 APK 的开关。
  */
-const loadPrefs = () => readJSON(PREFS_FILE, {lang: null});
+const loadPrefs = () => readJSON(PREFS_FILE, {lang: null, place: null});
 const savePrefs = p => writeJSON(PREFS_FILE, p);
 /** 她挑过就听她的，没挑过才看请求里带的那个。 */
 const langOf = asked => loadPrefs().lang ?? (asked === 'zh' ? 'zh' : 'en');
@@ -368,6 +369,36 @@ function ensureAsk(say, before, after) {
 }
 
 /**
+ * 今天的天气。
+ *
+ * 电视五秒轮询一次，不能每次都去敲人家的接口——缓存半小时。
+ * 取不到就返回 null，那一行干脆不出现：这块屏上少一行，
+ * 比挂一个过期或错的温度好。
+ */
+const WX_OK = 30 * 60 * 1000;   // 拿到了就存半小时
+const WX_BAD = 2 * 60 * 1000;   // 没拿到就先别再敲了，歇两分钟
+
+let wxCache = {at: 0, key: '', data: null};
+async function weather() {
+  const place = loadPrefs().place;
+  if (!place?.lat) return null;
+  const key = `${place.lat},${place.lon}`;
+  const age = Date.now() - wxCache.at;
+  if (wxCache.key === key && age < (wxCache.data ? WX_OK : WX_BAD)) return wxCache.data;
+  try {
+    const data = await Wx.fetchWeather(place);
+    // 失败也要记一笔。不记的话：电视五秒轮一次，每次都重新去打，
+    // 一分钟十二发，很快被限流，然后就再也好不了了——
+    // 一次网络抖动变成永久性的坏。
+    wxCache = {at: Date.now(), key, data: data ?? null};
+    return data ?? null;
+  } catch {
+    wxCache = {at: Date.now(), key, data: wxCache.key === key ? wxCache.data : null};
+    return wxCache.data;
+  }
+}
+
+/**
  * 今天这一步，一天只挑一次，然后一整天不变。
  *
  * 电视和手机都会调 /greet。advanceOne 是会落账的——谁先调谁拿到，
@@ -440,7 +471,7 @@ async function greet(lang) {
   const r = await callJSONIn(
     buildGreeting({
       now, lang, memory: loadMemory(), people: loadPeople(),
-      open, left: open.length, step, watch,
+      open, left: open.length, step, watch, weather: await weather(),
     }),
     lang,
   );
@@ -680,6 +711,7 @@ createServer(async (req, res) => {
       lang: loadPrefs().lang,
       step: (await todayStep(lang)) ?? null,
       projects,
+      weather: await weather(),
     });
   }
 
@@ -787,6 +819,33 @@ createServer(async (req, res) => {
   if (url.pathname === '/people') {
     const zh = langOf(url.searchParams.get('lang')) === 'zh';
     return json(res, 200, {people: Ppl.forDisplay(loadPeople(), zh)});
+  }
+
+  /**
+   * 她在哪儿。只到城市一级——一块客厅里的屏不需要知道她在哪条街。
+   * 低频变化，所以和语言一样存服务端，手机设一次，电视跟着变。
+   */
+  if (url.pathname === '/place' && req.method === 'POST') {
+    const {name} = JSON.parse((await readBody(req)) || '{}');
+    const prefs = loadPrefs();
+    if (!name?.trim()) {
+      savePrefs({...prefs, place: null});
+      wxCache = {at: 0, key: '', data: null};
+      return json(res, 200, {place: null});
+    }
+    try {
+      const place = await Wx.locate(name.trim());
+      if (!place) return json(res, 404, {error: '找不到这个地方'});
+      savePrefs({...prefs, place});
+      wxCache = {at: 0, key: '', data: null};
+      console.log(`[位置] ${place.name}`);
+      return json(res, 200, {place, weather: await weather()});
+    } catch (e) {
+      return json(res, 502, {error: String(e.message || e)});
+    }
+  }
+  if (url.pathname === '/place') {
+    return json(res, 200, {place: loadPrefs().place, weather: await weather()});
   }
 
   if (url.pathname === '/memory') return json(res, 200, loadMemory());
