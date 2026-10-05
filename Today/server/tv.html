@@ -1,0 +1,420 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Today — the big screen</title>
+<!--
+  电视端的网页版。
+
+  为什么要有它：评委大概率没有 Fire TV。一个网址就能看见这块屏长什么样，
+  比截图有说服力，比装 APK 省事。她自己也用得上——客厅那台不在身边的时候，
+  手机、平板、笔记本都能当那块屏。
+
+  和 APK 是同一份数据（/turn），所以不会两边说的不是一回事。
+  版式按 16:9 锁死并整体缩放：这样不管窗口多大，看到的都是「一台电视」，
+  而不是一个会把内容拉扯变形的网页。
+-->
+<style>
+  :root{
+    --accent:#6B5CE7; --warm:#E89B5B;
+    --text:#1C1A2A; --soft:#58546C; --faint:#9793A6;
+    --surface:rgba(255,255,255,.84); --surfaceOn:rgba(255,255,255,.97);
+    --border:rgba(107,92,231,.13); --shadow:rgba(107,92,231,.14);
+    --s1:#EFF3FD; --s2:#F4F2FC; --s3:#F8F8FC;
+  }
+  /* 一天的光线。和 src/theme.ts 里是同一组值——两块屏不该长得不一样。 */
+  body[data-part="dawn"]{--s1:#EAF0FD;--s2:#F0EFFB;--s3:#F7F7FB;--text:#1E1B2E;--soft:#5A5570;--faint:#9A95AD;--border:rgba(107,92,231,.14);--shadow:rgba(107,92,231,.16)}
+  body[data-part="dusk"]{--s1:#EDE9FA;--s2:#F1ECF8;--s3:#F6F2F6;--text:#231D33;--soft:#5E5572;--faint:#9B93AC;--accent:#8C7FF0;--border:rgba(107,92,231,.15);--shadow:rgba(107,92,231,.18)}
+  body[data-part="night"]{
+    --s1:#14131E;--s2:#171623;--s3:#131220;
+    --text:#E9E6F2;--soft:#A49FBA;--faint:#6F6A85;--accent:#A094FF;--warm:#E0A472;
+    --surface:rgba(255,255,255,.055);--surfaceOn:rgba(255,255,255,.11);
+    --border:rgba(160,148,255,.16);--shadow:rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    background:linear-gradient(150deg,var(--s1) 0%,var(--s2) 52%,var(--s3) 100%);
+    font:400 16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color:var(--text); position:relative;
+    transition:background .8s linear, color .4s;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 固定 1920×1080，整体缩放。看到的永远是一台电视的比例。
+     缩放不改变布局占位，所以不能靠 flex/grid 居中——那是按未缩放的
+     尺寸算的，盒子会被推出屏幕。绝对定位 + translate 自己居中。 */
+  #tv{
+    width:1920px;height:1080px;position:absolute;
+    left:50%;top:50%;transform-origin:center;
+  }
+  .page{position:absolute;inset:0;display:flex;padding:30px 44px;gap:20px}
+  .left{width:38%;padding-right:20px;display:flex;flex-direction:column}
+  .right{flex:1;display:flex;flex-direction:column;justify-content:center}
+
+  .clock{font-size:56px;font-weight:300;letter-spacing:-2px;line-height:1.05}
+  .date{font-size:13px;color:var(--soft);margin-top:5px;letter-spacing:.5px}
+  .wxline{font-size:13px;color:var(--soft);margin-top:5px;letter-spacing:.3px}
+  .wxhint{font-size:12px;color:var(--warm);margin-top:1px}
+  .rule{height:1px;width:44px;background:var(--border);margin:8px 0}
+  .tiger{width:62px;height:86px;object-fit:contain;margin-bottom:5px}
+  .say{font-size:26px;font-weight:300;line-height:34px;margin:0}
+
+  .step{margin-top:8px;padding-left:13px;border-left:3px solid var(--accent);border-radius:1px}
+  .step.hers{border-left-color:var(--warm)}
+  .stepHead{font-size:12px;letter-spacing:1px;color:var(--accent);margin-bottom:1px}
+  .step.hers .stepHead{color:var(--warm)}
+  .stepText{font-size:20px;line-height:26px}
+  .stepNote{font-size:12px;color:var(--faint);margin-top:3px}
+
+  .smallHead{font-size:12px;color:var(--faint);letter-spacing:1px;margin-bottom:5px}
+  .laterBlock{margin-top:8px}
+  /* 遥控器按下去不用瞄准，鼠标要。网页版把热区垫高一点——
+     12px 高的一行，用鼠标点是在考验人的手。 */
+  .laterItem{
+    font-size:12px;line-height:18px;color:var(--faint);
+    cursor:default;border-radius:5px;padding:4px 6px;margin:0 -6px;
+  }
+  .laterItem.can:hover{background:var(--surface)}
+  .laterItem.can{cursor:pointer}
+  .laterItem.on{color:var(--accent)}
+
+  .cardHead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;padding:0 5px}
+  .section{font-size:13px;font-weight:600;letter-spacing:1px;color:var(--soft)}
+  .count{font-size:12px;color:var(--faint)}
+  .row{
+    display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+    padding:13px 20px;border-radius:18px;margin-bottom:9px;
+    background:var(--surface);border:1px solid var(--border);
+    box-shadow:0 4px 14px var(--shadow);transition:transform .12s,border-color .12s;
+  }
+  .row.on{
+    background:var(--surfaceOn);border:2px solid var(--accent);
+    transform:scale(1.022);box-shadow:0 10px 28px var(--shadow);
+  }
+  .herEdge{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--warm)}
+  .box{width:26px;height:26px;border-radius:8px;border:1.5px solid var(--border);flex:0 0 auto;
+    display:grid;place-items:center;font-size:15px;color:#fff}
+  .box.done{background:var(--accent);border-color:var(--accent)}
+  .label{font-size:20px;font-weight:600}
+  .label.done{text-decoration:line-through;color:var(--faint);font-weight:400}
+  .note{font-size:12px;color:var(--faint);margin-top:2px}
+  .into{margin-left:auto;font-size:30px;font-weight:300;color:var(--accent)}
+  .memBlock{margin-top:13px;padding:0 5px}
+  .memItem{font-size:12px;line-height:18px;color:var(--faint)}
+
+  /* 按进去的那一层 */
+  #detail{position:absolute;inset:0;background:var(--s2);display:none;padding:30px 44px}
+  #detail.on{display:flex;gap:20px}
+  #detail .left{width:38%}
+  .dTitle{font-size:26px;font-weight:300;line-height:32px;margin-top:8px}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:13px}
+  .tag{font-size:12px;border:1px solid var(--border);color:var(--faint);
+    border-radius:999px;padding:3px 10px}
+  .tag.hers{color:var(--warm);border-color:var(--warm)}
+  .close{font-size:12px;color:var(--faint);margin-top:20px}
+  .optName{font-size:14px;font-weight:600;margin-top:8px}
+  .facts{display:flex;flex-wrap:wrap;gap:4px 13px;margin-top:2px}
+  .fact{font-size:13px;line-height:19px;color:var(--soft)}
+  .fact b{color:var(--faint);font-weight:400;margin-right:4px}
+  .optNote{font-size:12px;line-height:17px;color:var(--faint);margin-top:2px}
+  .struck{text-decoration:line-through}
+
+  .hint{
+    position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+    font-size:12px;color:var(--faint);opacity:.65;letter-spacing:.3px
+  }
+</style>
+</head>
+<body data-part="day">
+
+<div id="tv">
+  <div class="page" id="main">
+    <div class="left">
+      <div class="clock" id="clock"></div>
+      <div class="date" id="date"></div>
+      <div id="wx"></div>
+      <div class="rule"></div>
+      <img class="tiger" src="/today-tiger.png" alt="">
+      <p class="say" id="say"></p>
+      <div id="step"></div>
+      <div class="laterBlock" id="laterBlock" hidden>
+        <div class="smallHead" id="laterHead"></div>
+        <div id="later"></div>
+      </div>
+    </div>
+    <div class="right" id="right"></div>
+  </div>
+
+  <div id="detail">
+    <div class="left">
+      <img class="tiger" src="/today-tiger.png" alt="">
+      <div class="dTitle" id="dTitle"></div>
+      <div class="tags" id="dTags"></div>
+      <div class="close" id="dClose"></div>
+    </div>
+    <div class="right" style="justify-content:flex-start;padding-top:8px" id="dBody"></div>
+  </div>
+</div>
+
+<div class="hint" id="hint"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let turn = {say:'', cards:[], projects:[]};
+let lang = (navigator.language||'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+let picked = 0;          // 第几个能按进去的东西
+let openOn = null;
+
+const T = {
+  zh:{today:'今天', notToday:'今天不做', remember:'我还记着', empty:'今天还没理。',
+      left:n=>`还剩 ${n} 件`, allDone:'都做完了',
+      step:'今天这一步，我替你推', stepHers:'今天这一步，是你自己的事',
+      guide:'我替你查到的', checked:'查过了，出门前再确认一次时间和价格',
+      steps:'这件事是这么拆的', done:'已经做掉的', asked:'我问过你，还没答',
+      waited:d=>`搁了 ${d} 天`, hers:'这是你自己的事', close:'按 Esc 收起',
+      hint:'← → 选，Enter 按进去，Esc 退出'},
+  en:{today:'TODAY', notToday:'Not today', remember:'I also remember', empty:"Today isn't sorted yet.",
+      left:n=>n===1?'1 left':`${n} left`, allDone:'All done',
+      step:"TODAY'S ONE STEP — I'M MOVING IT", stepHers:"TODAY'S ONE STEP — THIS ONE IS YOURS",
+      guide:'What I found for you', checked:'Looked up — check times and prices again before you set out',
+      steps:'How this breaks down', done:'Already done', asked:"I asked you this, and you haven't said",
+      waited:d=>`Waiting ${d} days`, hers:'This one is yours', close:'Press Esc to close',
+      hint:'← → to move, Enter to open, Esc to close'},
+};
+const X = () => T[lang];
+
+/* 窗口多大都按 16:9 缩放。看到的要是一台电视，不是一个会变形的网页。 */
+function fit(){
+  const k = Math.min(innerWidth/1920, innerHeight/1080);
+  $('tv').style.transform = `translate(-50%,-50%) scale(${k})`;
+}
+addEventListener('resize', fit); fit();
+
+const part = h => h>=5&&h<9 ? 'dawn' : h>=9&&h<16 ? 'day' : h>=16&&h<20 ? 'dusk' : 'night';
+const two = n => String(n).padStart(2,'0');
+
+function clock(){
+  const d = new Date();
+  $('clock').textContent = `${d.getHours()}:${two(d.getMinutes())}`;
+  const wd = lang==='zh'
+    ? ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]
+    : ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+  $('date').textContent = lang==='zh'
+    ? `${d.getMonth()+1} 月 ${d.getDate()} 日 · ${wd}`
+    : `${['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]} ${d.getDate()} · ${wd}`;
+  document.body.dataset.part = part(d.getHours());
+}
+
+/* 天气那一句。和 src/agent/weather.js 同一套判断——两块屏不该说得不一样。 */
+function wxText(w){
+  if (!w) return null;
+  const zh = lang==='zh';
+  const W = {clear:['晴','Clear'],cloud:['多云','Cloudy'],fog:['有雾','Fog'],
+             drizzle:['小雨','Drizzle'],rain:['有雨','Rain'],snow:['有雪','Snow'],storm:['雷雨','Storms']};
+  const word = (W[w.kind]||W.cloud)[zh?0:1];
+  const r = w.low!=null && w.high!=null ? `${Math.round(w.low)}°–${Math.round(w.high)}°`
+          : w.now!=null ? `${Math.round(w.now)}°` : '';
+  let hint = '';
+  const wet = ['rain','storm','drizzle'].includes(w.kind) || (w.rainChance??0)>=50;
+  if (w.kind==='storm') hint = zh?'有雷雨，出门前再看一眼':'Storms about — check before you set out';
+  else if (wet) hint = zh?'会下雨，伞放门口':'Rain today — umbrella by the door';
+  else if (w.kind==='snow') hint = zh?'有雪，路上留神':'Snow — mind the pavements';
+  else if (w.low!=null && w.low<=5) hint = zh?'早上冷，外套厚一点':'Cold this morning — the thicker coat';
+  else if (w.high!=null && w.high>=30) hint = zh?'今天热，水带够':'Hot today — take enough water';
+  else if (w.kind==='fog') hint = zh?'有雾，出门早一点':'Fog — leave a little earlier';
+  return {line:[word,r].filter(Boolean).join(' · '), hint};
+}
+
+/* 大屏上只放得下开头一两句，断在句读上——完整那段在手机里。 */
+function glance(s, max=108){
+  const t = (s||'').trim();
+  if (t.length<=max) return t;
+  const c = t.slice(0,max);
+  const e = Math.max(c.lastIndexOf('。'), c.lastIndexOf('. '), c.lastIndexOf('！'), c.lastIndexOf('？'), c.lastIndexOf('? '));
+  if (e > max*0.4) return c.slice(0,e+1).trim();
+  const sp = c.lastIndexOf(' ');
+  return (sp>max*0.5 ? c.slice(0,sp) : c).trimEnd()+'…';
+}
+
+const tidy = v => String(v||'').replace(/[\s·,.，。、:：]/g,'').toLowerCase();
+const projectFor = label => {
+  const a = tidy(label), ps = turn.projects||[];
+  return ps.find(q=>tidy(q.title)===a)
+      ?? ps.find(q=>tidy(q.title).includes(a)||a.includes(tidy(q.title)))
+      ?? null;
+};
+const deep = p => !!(p && (p.steps?.length || p.asked || p.guide?.options?.length));
+
+/** 能按进去的东西，按屏幕上从上到下的顺序。 */
+function targets(){
+  const out = [];
+  const tasks = (turn.cards||[]).find(c=>c.type==='tasks');
+  for (const t of tasks?.items ?? []) {
+    const p = projectFor(t.label);
+    out.push({kind:'task', label:t.label, note:t.note, forHer:t.forHer, project:p, can:deep(p)});
+  }
+  const later = (turn.cards||[]).find(c=>c.type==='later');
+  for (const l of later?.items ?? []) {
+    const p = projectFor(l);
+    out.push({kind:'later', label:l, project:p, can:deep(p)});
+  }
+  return out;
+}
+
+function draw(){
+  const el = (c,t='div')=>{const e=document.createElement(t);e.className=c;return e;};
+  $('say').textContent = glance(turn.say) || X().empty;
+
+  const w = wxText(turn.weather);
+  $('wx').innerHTML = '';
+  if (w){
+    const a = el('wxline'); a.textContent = w.line; $('wx').append(a);
+    if (w.hint){ const b = el('wxhint'); b.textContent = w.hint; $('wx').append(b); }
+  }
+
+  // 今天这一步
+  $('step').innerHTML = '';
+  if (turn.step?.text){
+    const box = el('step'+(turn.step.forHer?' hers':''));
+    const h = el('stepHead'); h.textContent = turn.step.forHer ? X().stepHers : X().step;
+    const t = el('stepText'); t.textContent = turn.step.text;
+    box.append(h,t);
+    if (turn.step.note){ const n = el('stepNote'); n.textContent = turn.step.note; box.append(n); }
+    $('step').append(box);
+  }
+
+  const all = targets();
+  if (picked >= all.length) picked = Math.max(0, all.length-1);
+
+  // 右栏：今天
+  const tasks = (turn.cards||[]).find(c=>c.type==='tasks');
+  const items = tasks?.items ?? [];
+  const left = items.filter(i=>!i.done).length;
+  $('right').innerHTML = '';
+  if (items.length){
+    const head = el('cardHead');
+    const s1 = el('section'); s1.textContent = X().today;
+    const s2 = el('count'); s2.textContent = left===0 ? X().allDone : X().left(left);
+    head.append(s1,s2); $('right').append(head);
+    items.forEach((t,i)=>{
+      const idx = i;
+      const row = el('row'+(idx===picked?' on':''));
+      if (t.forHer) row.append(el('herEdge'));
+      const b = el('box'+(t.done?' done':'')); b.textContent = t.done?'✓':''; row.append(b);
+      const col = el(''); col.style.flex='1';
+      const lab = el('label'+(t.done?' done':'')); lab.textContent = t.label; col.append(lab);
+      if (t.note){ const n = el('note'); n.textContent = t.note; col.append(n); }
+      row.append(col);
+      if (idx===picked && all[idx]?.can){ const c = el('into'); c.textContent='›'; row.append(c); }
+      row.onclick = ()=>{ picked = idx; if (all[idx]?.can) show(all[idx]); else draw(); };
+      $('right').append(row);
+    });
+  }
+
+  // 我还记着
+  const mem = (turn.cards||[]).find(c=>c.type==='memory');
+  if (mem?.items?.length){
+    const block = el('memBlock');
+    const h = el('smallHead'); h.textContent = X().remember; block.append(h);
+    mem.items.slice(0,3).forEach(m=>{const e=el('memItem');e.textContent=m.text;block.append(e);});
+    $('right').append(block);
+  }
+
+  // 今天不做
+  const later = (turn.cards||[]).find(c=>c.type==='later');
+  const base = items.length;
+  if (later?.items?.length){
+    $('laterBlock').hidden = false;
+    $('laterHead').textContent = X().notToday;
+    $('later').innerHTML = '';
+    later.items.slice(0,3).forEach((l,i)=>{
+      const idx = base+i;
+      const can = all[idx]?.can;
+      const e = el('laterItem'+(can?' can':'')+(idx===picked?' on':''));
+      e.textContent = (idx===picked && can) ? `${l}  ›` : l;
+      e.onclick = ()=>{ picked = idx; if (can) show(all[idx]); else draw(); };
+      $('later').append(e);
+    });
+  } else $('laterBlock').hidden = true;
+
+  $('hint').textContent = X().hint;
+}
+
+function show(t){
+  openOn = t;
+  const p = t.project;
+  const el = (c,tag='div')=>{const e=document.createElement(tag);e.className=c;return e;};
+  $('dTitle').textContent = t.label;
+  $('dClose').textContent = X().close;
+  $('dTags').innerHTML = '';
+  if (t.forHer || p?.forHer){ const a=el('tag hers'); a.textContent=X().hers; $('dTags').append(a); }
+  if (p?.waited > 0){ const b=el('tag'); b.textContent=X().waited(p.waited); $('dTags').append(b); }
+
+  const body = $('dBody'); body.innerHTML='';
+  const steps = p?.steps ?? [];
+  const next = steps.find(s=>!s.done);
+  if (next){
+    const box = el('step'+((t.forHer||p?.forHer)?' hers':''));
+    const h=el('stepHead'); h.textContent = T[lang].step.replace(/，.*|—.*/,'');
+    const x=el('stepText'); x.textContent = next.text; box.append(h,x);
+    if (next.note){const n=el('stepNote');n.textContent=next.note;box.append(n);}
+    body.append(box);
+  }
+  if (p?.guide?.options?.length){
+    const h = el('smallHead'); h.textContent = X().guide; h.style.marginTop='13px'; body.append(h);
+    p.guide.options.slice(0,3).forEach(o=>{
+      const n = el('optName'); n.textContent = o.name; body.append(n);
+      const f = el('facts');
+      (o.facts||[]).slice(0,4).forEach(x=>{
+        const e = el('fact'); e.innerHTML = `<b></b>`; e.querySelector('b').textContent = x.k;
+        e.append(document.createTextNode(x.v)); f.append(e);
+      });
+      body.append(f);
+      if (o.note){ const nt=el('optNote'); nt.textContent=o.note; body.append(nt); }
+    });
+    const c = el('optNote'); c.textContent = X().checked; c.style.marginTop='8px'; body.append(c);
+  }
+  const rest = steps.filter(s=>!s.done && s!==next);
+  if (rest.length){
+    const h=el('smallHead'); h.textContent=X().steps; h.style.marginTop='13px'; body.append(h);
+    rest.slice(0,4).forEach(s=>{const e=el('fact');e.textContent='·  '+s.text;body.append(e);});
+  }
+  const done = steps.filter(s=>s.done);
+  if (done.length){
+    const h=el('smallHead'); h.textContent=X().done; h.style.marginTop='13px'; body.append(h);
+    done.slice(0,3).forEach(s=>{const e=el('fact struck');e.textContent='✓  '+s.text;body.append(e);});
+  }
+  $('detail').classList.add('on');
+  $('main').style.visibility='hidden';
+}
+function hide(){ openOn=null; $('detail').classList.remove('on'); $('main').style.visibility='visible'; draw(); }
+
+addEventListener('keydown', e=>{
+  if (e.key==='Escape'){ if (openOn) hide(); return; }
+  if (openOn) return;
+  const all = targets();
+  if (e.key==='ArrowDown'||e.key==='ArrowRight'){ picked=Math.min(all.length-1,picked+1); draw(); }
+  if (e.key==='ArrowUp'||e.key==='ArrowLeft'){ picked=Math.max(0,picked-1); draw(); }
+  if (e.key==='Enter'){ const t=all[picked]; if (t?.can) show(t); }
+});
+
+async function pull(){
+  try{
+    const r = await fetch('/turn');
+    if (!r.ok) return;
+    turn = await r.json();
+    if (turn.lang==='zh'||turn.lang==='en') lang = turn.lang;
+    else {
+      const body = (turn.say||'') + JSON.stringify(turn.cards||'');
+      if (/[一-龥]/.test(body)) lang='zh';
+    }
+    document.documentElement.lang = lang==='zh'?'zh-CN':'en';
+    if (!openOn) draw();
+  }catch{}
+}
+clock(); setInterval(clock, 10000);
+pull();  setInterval(pull, 5000);
+</script>
+</body>
+</html>

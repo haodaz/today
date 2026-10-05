@@ -593,6 +593,15 @@ createServer(async (req, res) => {
     return json(res, 404, {error: 'no such shot'});
   }
 
+  /**
+   * 电视端的网页版。评委大概率没有 Fire TV——一个网址就能看见这块屏。
+   * 和 APK 吃的是同一个 /turn，所以两边不会说的不是一回事。
+   */
+  if (url.pathname === '/tv') {
+    res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
+    return res.end(readFileSync(join(HERE, 'tv.html')));
+  }
+
   if (url.pathname === '/app' || url.pathname === '/index.html') {
     res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
     return res.end(readFileSync(join(HERE, 'phone.html')));
