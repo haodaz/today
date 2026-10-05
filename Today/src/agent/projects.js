@@ -55,6 +55,7 @@ function locate(items, op) {
  *   at: string,
  *   lastMoved?: string,
  *   offers?: number,
+ *   guide?: {options: {name: string, facts: {k: string, v: string}[], note?: string, source?: string}[], at: string},
  *   done?: boolean,
  * }} Project
  */
@@ -107,8 +108,45 @@ export function neglected(list, {offers = 3, asked = 3} = {}) {
   });
 }
 
+/**
+ * 查回来的东西，整理成挂在这件事上的一张表。
+ *
+ * 值要短——这是给三米外的电视看的，一行放不下的就不是 key:value，是散文。
+ * 不知道的那一项直接不列：空着比写「未知」诚实，比编一个安全。
+ *
+ * 它只是同一份内容的另一种呈现，不是「详版」。判断还在 say 里，
+ * 两边都给人看，只是一个给人读、一个给人扫。
+ */
+/** 截断要截在词的边界上。切到半个词，看着就像坏了。 */
+function clip(v, n) {
+  const t = String(v ?? '').trim();
+  if (t.length <= n) return t;
+  const cut = t.slice(0, n);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > n * 0.6 ? cut.slice(0, sp) : cut).trimEnd() + '…';
+}
+
+function cleanGuide(g, nowIso) {
+  const options = (g?.options ?? [])
+    .map(o => ({
+      name: String(o?.name ?? '').trim().slice(0, 60),
+      facts: (o?.facts ?? [])
+        .map(f => ({
+          k: clip(f?.k, 10),
+          v: clip(f?.v, 46),
+        }))
+        .filter(f => f.k && f.v)
+        .slice(0, 5),
+      note: o?.note ? clip(o.note, 130) : undefined,
+      source: o?.source ? String(o.source).trim().slice(0, 60) : undefined,
+    }))
+    .filter(o => o.name && o.facts.length)
+    .slice(0, 5);
+  return options.length ? {options, at: nowIso} : null;
+}
+
 /** 合并模型给的项目改动。只认它明确给的，不猜。 */
-export function apply(cur, ops) {
+export function apply(cur, ops, guide = null) {
   const items = [...(cur?.items ?? [])];
   const now = new Date().toISOString();
 
@@ -170,6 +208,13 @@ export function apply(cur, ops) {
     }
     // 整件事不做了 / 做完了
     if (kind === 'drop' || kind === 'done') p.done = true;
+  }
+  // 把指南挂到它说的那件事上。对不上就算了——
+  // 宁可这次没挂上，也不要挂到错的事情下面。
+  if (guide?.for) {
+    const target = locate(items, {title: guide.for, id: guide.for});
+    const g = cleanGuide(guide, now);
+    if (target && g) target.guide = g;
   }
   return {items};
 }

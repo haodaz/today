@@ -64,6 +64,16 @@ export type Turn = {
     waited: number | null;
     asked: string | null;
     steps: {text: string; note: string | null; done: boolean}[];
+    /** 查回来整理成的一张表。按进去才看得见。 */
+    guide?: {
+      options: {
+        name: string;
+        facts: {k: string; v: string}[];
+        note?: string;
+        source?: string;
+      }[];
+      at: string;
+    } | null;
   }[];
 };
 

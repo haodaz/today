@@ -12,6 +12,10 @@ export type DetailProject = {
   waited: number | null;
   asked: string | null;
   steps: {text: string; note: string | null; done: boolean}[];
+  guide?: {
+    options: {name: string; facts: {k: string; v: string}[]; note?: string; source?: string}[];
+    at: string;
+  } | null;
 };
 
 export type DetailPayload = {
@@ -40,6 +44,8 @@ const T = {
     remembered: '我还记着',
     when: '什么时候做',
     close: '按返回键收起',
+    guide: '我替你查到的',
+    checked: '查过了，出门前再确认一次时间和价格',
     nothing: '这件事我只记着这一句。',
     hers: '这是你自己的事',
   },
@@ -52,6 +58,8 @@ const T = {
     remembered: 'I also remember',
     when: 'When it fits',
     close: 'Press back to close',
+    guide: 'What I found for you',
+    checked: 'Looked up — check times and prices again before you set out',
     nothing: "This is all I'm holding on this one.",
     hers: 'This one is yours',
   },
@@ -124,6 +132,39 @@ export function Detail({payload, daypart, lang, onClose}: Props) {
                 <Text style={[s.head, {color: accent}]}>{x.asked}</Text>
                 <Text style={[s.nowText, {color: p.text}]} numberOfLines={2}>
                   {proj.asked}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* 查回来整理成的一张表。
+                三米外看，所以是 key: value，不是段落——她要的是「几点、多少钱」
+                这种一眼能对上的东西。判断不在这儿，在它跟她说的那段话里；
+                这张表和那段话是同一件事的两种呈现，不是简版和详版。 */}
+            {proj?.guide?.options.length ? (
+              <View style={s.block}>
+                <Text style={[s.head, {color: p.textSoft}]}>{x.guide}</Text>
+                {proj.guide.options.slice(0, 3).map((o, i) => (
+                  <View key={i} style={s.opt}>
+                    <Text style={[s.optName, {color: p.text}]} numberOfLines={1}>
+                      {o.name}
+                    </Text>
+                    <View style={s.facts}>
+                      {o.facts.slice(0, 4).map((f, j) => (
+                        <Text key={j} style={[s.fact, {color: p.textSoft}]} numberOfLines={1}>
+                          <Text style={{color: p.textFaint}}>{f.k}  </Text>
+                          {f.v}
+                        </Text>
+                      ))}
+                    </View>
+                    {o.note ? (
+                      <Text style={[s.optNote, {color: p.textFaint}]} numberOfLines={2}>
+                        {o.note}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+                <Text style={[s.optNote, {color: p.textFaint, marginTop: space.xs}]}>
+                  {x.checked}
                 </Text>
               </View>
             ) : null}
@@ -205,4 +246,10 @@ const s = StyleSheet.create({
   head: {fontSize: type.meta, letterSpacing: 1, marginBottom: space.xs},
   line: {fontSize: type.meta + 2, lineHeight: 21},
   struck: {textDecorationLine: 'line-through'},
+  opt: {marginBottom: space.sm},
+  optName: {fontSize: type.meta + 4, fontWeight: '600'},
+  // 事实横着排，一眼扫完。竖着列会把一屏吃光，而这屏还要放拆解。
+  facts: {flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: 2},
+  fact: {fontSize: type.meta + 1, lineHeight: 19},
+  optNote: {fontSize: type.meta, lineHeight: 17, marginTop: 2},
 });

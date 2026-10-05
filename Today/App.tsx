@@ -33,6 +33,25 @@ const EMPTY: Turn = {say: '', cards: []};
 const TIGER = require('./assets/today/today-tiger.png');
 
 /**
+ * 一段话里能放上大屏的那一点点。
+ *
+ * 取头一两句，断在句读上。电视不是用来读长文的——那段完整的话在手机上，
+ * 查回来的事实表按右键就能看。所以这里宁可少给，也不要留一个半截的词。
+ */
+function glance(say: string, max = 108): string {
+  const t = (say ?? '').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const end = Math.max(
+    cut.lastIndexOf('。'), cut.lastIndexOf('. '),
+    cut.lastIndexOf('！'), cut.lastIndexOf('? '), cut.lastIndexOf('？'),
+  );
+  if (end > max * 0.4) return cut.slice(0, end + 1).trim();
+  const sp = cut.lastIndexOf(' ');
+  return (sp > max * 0.5 ? cut.slice(0, sp) : cut).trimEnd() + '…';
+}
+
+/**
  * 「今天不做」里的一行。
  *
  * 和任务行同样的问题：右键是用来按进去的，但焦点引擎会先把焦点挪走，
@@ -198,7 +217,12 @@ export default function App() {
    * 是在许一个空的承诺。箭头只出现在真有内容的行上，于是箭头本身就是说明。
    */
   const hasDepth = (d: DetailPayload) =>
-    !!(d.project?.steps.length || d.project?.asked || d.notes?.length);
+    !!(
+      d.project?.steps.length ||
+      d.project?.asked ||
+      d.project?.guide?.options.length ||   // 只有一张查回来的表也算有内容
+      d.notes?.length
+    );
   const left = items.filter(i => !i.done).length;
 
   const toggle = async (id: string) => {
@@ -270,8 +294,11 @@ export default function App() {
             <Image source={TIGER} style={s.tiger} resizeMode="contain" />
             {/* 四行封顶。模型输出的长度不可控，界面不能指望它守规矩——
                 溢出会把下面的内容顶出屏幕。 */}
+            {/* 它说的话可能是一整段——她问了个要查的事，那段话是给手机看的，
+                在路上她也是看手机。这块屏只取开头一两句，断在句号上，
+                不从词中间切；完整的那份在手机里，整理好的那份按右键看。 */}
             <Text style={[s.say, {color: p.text}]} numberOfLines={3}>
-              {turn.say || x.empty}
+              {glance(turn.say) || x.empty}
             </Text>
           </View>
 

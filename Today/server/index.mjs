@@ -364,6 +364,7 @@ async function ask(braindump, lang, mode) {
     ...toTurn(raw, current),
     projects: Array.isArray(raw?.projects) ? raw.projects : [],
     people: Array.isArray(raw?.people) ? raw.people : [],
+    guide: raw?.guide?.for ? raw.guide : null,
   };
 }
 
@@ -661,13 +662,13 @@ createServer(async (req, res) => {
       appendMessage({who: 'her', text: braindump.trim(), mode: M});
 
       const before = currentPlan();
-      const {turn, remember, projects, people} = await ask(braindump, L, M);
+      const {turn, remember, projects, people, guide} = await ask(braindump, L, M);
       const mem = mergeMem(loadMemory(), remember);
       writeJSON(MEM_FILE, mem);
       if (people.length) savePeople(Ppl.apply(loadPeople(), people));
-      if (projects.length) {
+      if (projects.length || guide) {
         const prev = loadProjects();
-        const next = Proj.apply(prev, projects);
+        const next = Proj.apply(prev, projects, guide);
         saveProjects(next);
         turn.say = ensureAsk(turn.say, prev, next);
       }
@@ -730,7 +731,23 @@ createServer(async (req, res) => {
         steps: (p.steps ?? []).map(st => ({
           text: st.text, note: st.note ?? null, done: !!st.done,
         })),
+        // 她查回来的那张表。按进去才看得见，和拆解一样。
+        guide: p.guide ?? null,
       }));
+
+    // 「今天不做」这一栏是模型给的，它不一定把在推的事都写进去。
+    // 但电视上只有这一栏能按进去——有内容的东西够不着，等于没有。
+    // 所以把项目并进来，有指南/有拆解的排前面。
+    const laterCard = cards.find(c => c.type === 'later');
+    const seen = new Set((laterCard?.items ?? []).map(t => String(t).trim()));
+    const extra = projects
+      .filter(p => !seen.has(p.title.trim()))
+      .sort((a, b) => Number(!!b.guide) - Number(!!a.guide))
+      .map(p => p.title);
+    if (extra.length) {
+      if (laterCard) laterCard.items = [...extra, ...laterCard.items];
+      else cards.push({type: 'later', items: extra});
+    }
 
     return json(res, 200, {
       say: last?.text ?? '',
