@@ -1,5 +1,7 @@
-import React, {useRef, useState} from 'react';
-import {Animated, Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  Animated, findNodeHandle, Pressable, StyleSheet, Text, View,
+} from 'react-native';
 import {palettes, type Daypart, type, space} from './theme';
 
 type Props = {
@@ -11,6 +13,10 @@ type Props = {
   daypart: Daypart;
   autoFocus?: boolean;
   onToggle: () => void;
+  /** 焦点停在这一行了。上层要知道，右键按下去才知道该开谁的详情。 */
+  onFocusIn?: () => void;
+  /** 按进去真有东西。没有就不画箭头——不许诺一个空屏。 */
+  hasMore?: boolean;
 };
 
 /**
@@ -28,10 +34,28 @@ export function TaskRow({
   daypart,
   autoFocus,
   onToggle,
+  onFocusIn,
+  hasMore,
 }: Props) {
   const p = palettes[daypart];
   const [focused, setFocused] = useState(false);
   const lift = useRef(new Animated.Value(0)).current;
+
+  /**
+   * 把「向右」钉死在自己身上。
+   *
+   * 右键是用来按进详情的，但系统的焦点引擎不管这个——它先把焦点挪走，
+   * 我的按键处理器再读到的就已经是下一件事了。试过一次：焦点明明停在
+   * 「保险」上，按右键开出来的是「看牙」。
+   *
+   * 所以让这一行的「右邻居」就是它自己。焦点不动，按键才轮得到我处理。
+   */
+  const box = useRef<View | null>(null);
+  const [self, setSelf] = useState<number | null>(null);
+  useEffect(() => {
+    const h = findNodeHandle(box.current);
+    if (h != null) setSelf(h);
+  }, []);
 
   const animate = (to: number) =>
     Animated.spring(lift, {
@@ -46,10 +70,13 @@ export function TaskRow({
   return (
     <Animated.View style={{transform: [{scale}]}}>
       <Pressable
+        ref={box}
+        nextFocusRight={self ?? undefined}
         hasTVPreferredFocus={autoFocus}
         onFocus={() => {
           setFocused(true);
           animate(1);
+          onFocusIn?.();
         }}
         onBlur={() => {
           setFocused(false);
@@ -105,6 +132,12 @@ export function TaskRow({
             </Text>
           ) : null}
         </View>
+
+        {/* 只在聚焦时浮出来。告诉她这一行还能往里按，
+            而且不用写一行说明——箭头自己会说。 */}
+        {focused && hasMore ? (
+          <Text style={[s.into, {color: p.accent}]}>›</Text>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
@@ -130,6 +163,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginRight: space.md,
   },
+  into: {fontSize: 30, lineHeight: 30, marginLeft: space.sm, fontWeight: '300'},
   tick: {color: '#FFFFFF', fontSize: 16, fontWeight: '700', lineHeight: 18},
   textCol: {flex: 1},
   label: {fontSize: type.task, fontWeight: '500', letterSpacing: 0.2},

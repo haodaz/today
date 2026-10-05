@@ -42,6 +42,20 @@ export type Turn = {
   lang?: 'zh' | 'en' | null;
   /** 今天替她推的那一步。一天一步，剩下的收着不给看。 */
   step?: {project: string; forHer?: boolean; text: string; note?: string} | null;
+  /**
+   * 在推的事，带完整拆解。
+   *
+   * 平时不显示——电视上只给今天这一步。这些是等她拿遥控器按进某一件事时
+   * 才摊开的：她按了就是她开的口，和我们倒给她是两回事。
+   */
+  projects?: {
+    id: string;
+    title: string;
+    forHer: boolean;
+    waited: number | null;
+    asked: string | null;
+    steps: {text: string; note: string | null; done: boolean}[];
+  }[];
 };
 
 /**

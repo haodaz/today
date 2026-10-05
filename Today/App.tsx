@@ -1,9 +1,13 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {Image, SafeAreaView, StatusBar, StyleSheet, Text, View} from 'react-native';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Image, findNodeHandle, Pressable, SafeAreaView, StatusBar, StyleSheet, Text,
+  View, useTVEventHandler,
+} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
+import {Detail, type DetailPayload} from './src/Detail';
 import {daypartOf, palettes, safe, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
 import type {Card, Turn} from './src/agent/types';
@@ -24,6 +28,45 @@ const EMPTY: Turn = {say: '', cards: []};
 /** 捧心的小老虎。它捧着的就是她交给它的事。 */
 const TIGER = require('./assets/today/today-tiger.png');
 
+/**
+ * 「今天不做」里的一行。
+ *
+ * 和任务行同样的问题：右键是用来按进去的，但焦点引擎会先把焦点挪走，
+ * 处理器读到的就是下一件事。所以这里也把向右钉死在自己身上。
+ */
+function LaterRow({
+  label, accent, faint, show, onFocusIn, onOpen,
+}: {
+  label: string;
+  accent: string;
+  faint: string;
+  show: boolean;
+  onFocusIn: () => void;
+  onOpen: () => void;
+}) {
+  const box = useRef<View | null>(null);
+  const [self, setSelf] = useState<number | null>(null);
+  useEffect(() => {
+    const h = findNodeHandle(box.current);
+    if (h != null) setSelf(h);
+  }, []);
+  return (
+    <Pressable
+      ref={box}
+      nextFocusRight={self ?? undefined}
+      onFocus={onFocusIn}
+      onPress={onOpen}>
+      {({focused}) => (
+        <Text
+          style={[s.smallItem, {color: focused ? accent : faint}]}
+          numberOfLines={1}>
+          {focused && show ? `${label}  \u203a` : label}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
 export default function App() {
   // 这块屏幕要全天亮着，不能让系统屏保把它盖掉
   useKeepAwake();
@@ -34,6 +77,10 @@ export default function App() {
   const [lang, setLang] = useState(deviceLang);
   const x = t(lang);
 
+  /** 焦点停在哪一件事上。右键要开谁的详情，全靠它。 */
+  const [focus, setFocus] = useState<DetailPayload | null>(null);
+  const [open, setOpen] = useState<DetailPayload | null>(null);
+
   const [now, setNow] = useState(new Date());
   const [turn, setTurn] = useState<Turn>(EMPTY);
   /** 手机要扫的地址。拿不到公网地址就退回内网，至少在家里能用。 */
@@ -43,6 +90,17 @@ export default function App() {
     const clock = setInterval(() => setNow(new Date()), 10_000);
     return () => clearInterval(clock);
   }, []);
+
+  /**
+   * 右方向键按进一件事。
+   *
+   * 中间键是打勾，不能抢。列表是竖的，右边本来没东西，所以右键空着——
+   * 而且在 Android TV 上「往右钻进去」是惯例，不用教。
+   * 收起走返回键，Modal 的 onRequestClose 已经接住了。
+   */
+  useTVEventHandler(evt => {
+    if (evt?.eventType === 'right' && focus && !open && hasDepth(focus)) setOpen(focus);
+  });
 
   // 手机那边说完话，这边自己就变。
   // 轮询而不是推送：这块屏整天开着，五秒一次的代价可以忽略，
@@ -92,6 +150,33 @@ export default function App() {
   const memory = turn.cards.find(c => c.type === 'memory');
   const items = tasks?.type === 'tasks' ? tasks.items : [];
   const step = turn.step;
+
+  /**
+   * 一行字对应到哪件在推的事。
+   *
+   * 模型写的标题和卡片上的字不会完全一样（「给Coco办保险」/「保险」），
+   * 所以去掉标点空格之后互相包含就算对上。对不上也没关系——
+   * 那就是一件普通的事，详情里给它的时机和归属就够了。
+   */
+  const projects = turn.projects ?? [];
+  const tidy = (v: string) => v.replace(/[\s·,.，。、:：]/g, '').toLowerCase();
+  const detailFor = (label: string, note?: string, forHer?: boolean): DetailPayload => {
+    const a = tidy(label);
+    const hit =
+      projects.find(q => tidy(q.title) === a) ??
+      projects.find(q => tidy(q.title).includes(a) || a.includes(tidy(q.title))) ??
+      null;
+    return {title: label, note: note ?? null, forHer: forHer ?? hit?.forHer, project: hit};
+  };
+
+  /**
+   * 这一行按进去有没有东西。
+   *
+   * 只有时机那一句的，不算——那句在行上已经写着了，再铺一整屏去放它
+   * 是在许一个空的承诺。箭头只出现在真有内容的行上，于是箭头本身就是说明。
+   */
+  const hasDepth = (d: DetailPayload) =>
+    !!(d.project?.steps.length || d.project?.asked || d.notes?.length);
   const left = items.filter(i => !i.done).length;
 
   const toggle = async (id: string) => {
@@ -183,13 +268,21 @@ export default function App() {
               </Text>
               {/* 三条，不是四条——上面那一步要地方，而「今天不做」
                   是这块屏上最不紧要的一块。 */}
+              {/* 这几条多半就是在推的大事。它们在这儿看着最不起眼，
+                  但按进去是内容最多的——所以也要能聚焦。 */}
               {later.items.slice(0, 3).map((l, i) => (
-                <Text
+                <LaterRow
                   key={i}
-                  style={[s.smallItem, {color: p.textFaint}]}
-                  numberOfLines={1}>
-                  {l}
-                </Text>
+                  label={l}
+                  accent={p.accent}
+                  faint={p.textFaint}
+                  show={hasDepth(detailFor(l))}
+                  onFocusIn={() => setFocus(detailFor(l))}
+                  onOpen={() => {
+                    const d = detailFor(l);
+                    if (hasDepth(d)) setOpen(d);
+                  }}
+                />
               ))}
             </View>
           ) : null}
@@ -216,6 +309,10 @@ export default function App() {
                   daypart={daypart}
                   autoFocus={i === 0}
                   onToggle={() => toggle(task.id)}
+                  onFocusIn={() =>
+                    setFocus(detailFor(task.label, task.note, task.forHer))
+                  }
+                  hasMore={hasDepth(detailFor(task.label, task.note, task.forHer))}
                 />
               ))}
 
@@ -260,6 +357,14 @@ export default function App() {
           )}
         </View>
       </View>
+
+      {/* 按进去的那一层。平时不在，她按右键才铺开。 */}
+      <Detail
+        payload={open}
+        daypart={daypart}
+        lang={lang}
+        onClose={() => setOpen(null)}
+      />
       </SafeAreaView>
     </LinearGradient>
   );

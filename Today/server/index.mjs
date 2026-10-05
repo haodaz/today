@@ -652,11 +652,34 @@ createServer(async (req, res) => {
     // 今天这一步也在这儿给——「接」是四个能力里最能说明它在替她办事的那个，
     // 只在手机上看得见等于白做：整天开着的是这块屏。
     const lang = langOf(null);
+
+    // 按进去才看得见的那一层。
+    //
+    // 电视上平时只给今天这一步——「绝对不要把整个拆解一次倒给她」。
+    // 但她拿遥控器按进某一件事，那是她开的口，不是我们倒给她的。
+    // 和「她问了就答」是同一条线：推送与索取的区别，不是信息多少的区别。
+    //
+    // 仍然不给数字。步骤带勾，但没有「2/4」——那个一出现就成了看板。
+    const DAY = 86400000;
+    const projects = loadProjects().items
+      .filter(p => !p.done)
+      .map(p => ({
+        id: p.id,
+        title: p.title,
+        forHer: p.forHer === true,
+        waited: p.at ? Math.floor((Date.now() - new Date(p.at).getTime()) / DAY) : null,
+        asked: p.asked ?? null,
+        steps: (p.steps ?? []).map(st => ({
+          text: st.text, note: st.note ?? null, done: !!st.done,
+        })),
+      }));
+
     return json(res, 200, {
       say: last?.text ?? '',
       cards,
       lang: loadPrefs().lang,
       step: (await todayStep(lang)) ?? null,
+      projects,
     });
   }
 
