@@ -831,7 +831,12 @@ createServer(async (req, res) => {
       items: store.items.filter(p => !p.done).map(p => ({
         id: p.id, title: p.title, forHer: p.forHer === true,
         next: Proj.nextStep(p)?.text ?? null,
+        nextNote: Proj.nextStep(p)?.note ?? null,
         asked: p.asked ?? null,
+        waited: p.at ? Math.floor((Date.now() - new Date(p.at).getTime()) / 86400000) : null,
+        // 手机上也看得见整理好的那份。两块屏是同一份内容，不是一个简版一个详版。
+        steps: (p.steps ?? []).map(st => ({text: st.text, note: st.note ?? null, done: !!st.done})),
+        guide: p.guide ?? null,
       })),
     });
   }

@@ -270,9 +270,50 @@
   .item.done .lab{color:var(--faint);text-decoration:line-through}
   .sub{font-size:13px;color:var(--faint);margin-top:2px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 2px}
+  /* 详情：从底下升起来的一层。
+     电视上是按右键铺开，手机上是往上一推——同一份内容，各自的手势。 */
+  .dsheet{position:fixed;inset:0;z-index:45;display:none}
+  .dsheet.on{display:block}
+  .dbg{position:absolute;inset:0;background:rgba(28,26,42,.3);
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:fade .2s}
+  .dbody{
+    position:absolute;left:0;right:0;bottom:0;max-height:86%;overflow-y:auto;
+    background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(1.7);
+    backdrop-filter:blur(26px) saturate(1.7);
+    border-radius:26px 26px 0 0;border-top:1px solid var(--line);
+    padding:20px 20px calc(26px + env(safe-area-inset-bottom));
+    animation:up .26s cubic-bezier(.2,.7,.3,1);
+  }
+  @keyframes up{from{transform:translateY(18px);opacity:.5}}
+  .dgrab{width:38px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px}
+  .dtitle{font-size:21px;font-weight:500;line-height:1.3;letter-spacing:-.01em}
+  .dtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .dtag{font-size:12px;border:1px solid var(--line);color:var(--faint);
+    border-radius:999px;padding:3px 10px}
+  .dtag.hers{color:var(--warm);border-color:var(--warm)}
+  .dnow{margin-top:16px;padding-left:12px;border-left:3px solid var(--ember);border-radius:1px}
+  .dnow.hers{border-left-color:var(--warm)}
+  .dhead{font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ember);font-weight:600}
+  .dnow.hers .dhead{color:var(--warm)}
+  .dnowt{font-size:16px;line-height:1.5;margin-top:3px}
+  .dmeta{font-size:12.5px;color:var(--faint);margin-top:2px}
+  .dsec{font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--faint);font-weight:600;margin:18px 0 7px}
+  .dopt{margin-bottom:13px}
+  .doptn{font-size:15.5px;font-weight:600}
+  .dfacts{display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:3px}
+  .dfact{font-size:13.5px;line-height:1.5}
+  .dfact b{color:var(--faint);font-weight:400;margin-right:5px}
+  .dstep{font-size:14.5px;line-height:1.6;color:var(--soft)}
+  .dstep.done{text-decoration:line-through;color:var(--faint)}
+
   .chip{font-size:13px;color:var(--soft);background:rgba(255,255,255,.5);
     border:1px solid var(--line);border-radius:999px;padding:5px 11px}
   @media (prefers-color-scheme: dark){ .chip{background:rgba(255,255,255,.05)} }
+  /* 有东西可看的才可点。没有的就是一行字，不要许一个空的承诺。 */
+  .chip.can{cursor:pointer;color:var(--ember);border-color:var(--ember)}
+  .chip.can:active{background:var(--ember-tint)}
 
   /* ── todo 面 ── */
   .pane{padding:4px 4px 10px}
@@ -337,6 +378,11 @@
 </nav>
 
 <!-- 对话历史。她不需要永远看着历史，但历史不能丢。 -->
+<div class="dsheet" id="dsheet">
+  <div class="dbg" id="dbg"></div>
+  <div class="dbody"><div class="dgrab"></div><div id="dcontent"></div></div>
+</div>
+
 <div class="sheet" id="sheet" hidden>
   <div class="sheetbg" id="sheetbg"></div>
   <div class="sheetbody">
@@ -408,6 +454,9 @@ const DICT = {
        placeHead:'在哪儿', placePh:'城市就行，比如 北京 / Beijing',
        placeSave:'存下', placeNone:'还没设。设了之后电视上会有今天的天气。',
        placeBad:'没找到这个地方，换个写法试试',
+       dStep:'今天这一步', dGuide:'我替你查到的', dSteps:'这件事是这么拆的',
+       dDone:'已经做掉的', dAsked:'我问过你，还没答', dHers:'这是你自己的事',
+       dWaited:n=>`搁了 ${n} 天`, dChecked:'查过了，出门前再确认一次时间和价格',
        updated:'更新了', history:'今天聊过的', noHistory:'还没有别的对话',
        today:'今天', yday:'昨天', daysAgo:d=>`${d} 天前`, stale:'要确认一下',
        cAdd:n=>`记上 ${n}`, cDone:n=>`${n} 做完了`,
@@ -452,6 +501,9 @@ const DICT = {
        placeHead:'Where you are', placePh:'A town is enough — e.g. Leeds',
        placeSave:'Save', placeNone:"Not set. Set it and the television shows today's weather.",
        placeBad:"Couldn't find that — try another spelling",
+       dStep:"Today's step", dGuide:'What I found for you', dSteps:'How this breaks down',
+       dDone:'Already done', dAsked:"I asked you this, and you haven't said", dHers:'This one is yours',
+       dWaited:n=>`Waiting ${n} days`, dChecked:'Looked up — check times and prices again before you set out',
        noMic:"This browser can't record. Type instead.",
        insecure:'Open the https address to use the mic. This one is http, so the browser blocks it.',
        denied:'Microphone is blocked. Allow this site to use it in your browser settings.',
@@ -526,6 +578,7 @@ const el = (cls, tag='div') => { const e=document.createElement(tag); e.classNam
     if (lang === 'zh' || lang === 'en') { LANG = lang; chosen = true; paintLang(); }
   } catch {}
   try { day = await (await fetch('/day')).json(); } catch {}
+  await syncProjects();
   draw();
   await openLaunch();
 })();
@@ -644,6 +697,89 @@ $('fresh').onclick = async () => {
   draw();
   await openLaunch();
 };
+
+/* ── 按进去的那一层 ────────────────────────────────────
+   和电视上是同一份内容：今天这一步、查回来的那张表、拆解。
+   电视按右键铺开，手机往上一推——手势不同，东西是同一个。 */
+
+let projCache = [];
+const tidy = v => String(v||'').replace(/[\s·,.，。、:：]/g,'').toLowerCase();
+const projFor = label => {
+  const a = tidy(label);
+  return projCache.find(q => tidy(q.title) === a)
+      ?? projCache.find(q => tidy(q.title).includes(a) || a.includes(tidy(q.title)))
+      ?? null;
+};
+const hasDepth = p => !!(p && (p.steps?.length || p.asked || p.guide?.options?.length));
+
+async function syncProjects() {
+  try { projCache = (await (await fetch('/projects')).json()).items ?? []; }
+  catch { projCache = []; }
+}
+
+function openDetail(p) {
+  if (!p) return;
+  const box = $('dcontent');
+  box.innerHTML = '';
+  const add = (cls, text, tag='div') => {
+    const e = el(cls, tag); if (text != null) e.textContent = text; box.appendChild(e); return e;
+  };
+  add('dtitle', p.title);
+
+  const tags = el('dtags');
+  if (p.forHer) { const t = el('dtag hers','span'); t.textContent = X.dHers; tags.appendChild(t); }
+  if (p.waited > 0) { const t = el('dtag','span'); t.textContent = X.dWaited(p.waited); tags.appendChild(t); }
+  if (tags.children.length) box.appendChild(tags);
+
+  const next = (p.steps ?? []).find(s => !s.done);
+  if (next) {
+    const n = el('dnow' + (p.forHer ? ' hers' : ''));
+    const h = el('dhead'); h.textContent = X.dStep;
+    const t = el('dnowt'); t.textContent = next.text;
+    n.append(h, t);
+    if (next.note) { const m = el('dmeta'); m.textContent = next.note; n.appendChild(m); }
+    box.appendChild(n);
+  } else if (p.asked) {
+    const n = el('dnow' + (p.forHer ? ' hers' : ''));
+    const h = el('dhead'); h.textContent = X.dAsked;
+    const t = el('dnowt'); t.textContent = p.asked;
+    n.append(h, t); box.appendChild(n);
+  }
+
+  if (p.guide?.options?.length) {
+    add('dsec', X.dGuide);
+    for (const o of p.guide.options.slice(0, 5)) {
+      const w = el('dopt');
+      const n = el('doptn'); n.textContent = o.name; w.appendChild(n);
+      const f = el('dfacts');
+      for (const x of (o.facts ?? []).slice(0, 5)) {
+        const e = el('dfact');
+        const b = document.createElement('b'); b.textContent = x.k;
+        e.append(b, document.createTextNode(x.v)); f.appendChild(e);
+      }
+      w.appendChild(f);
+      if (o.note) { const nt = el('dmeta'); nt.textContent = o.note; w.appendChild(nt); }
+      if (o.source) { const sc = el('dmeta'); sc.textContent = o.source; w.appendChild(sc); }
+      box.appendChild(w);
+    }
+    add('dmeta', X.dChecked);
+  }
+
+  const rest = (p.steps ?? []).filter(s => !s.done && s !== next);
+  if (rest.length) {
+    add('dsec', X.dSteps);
+    for (const s2 of rest) add('dstep', '·  ' + s2.text);
+  }
+  const done = (p.steps ?? []).filter(s => s.done);
+  if (done.length) {
+    add('dsec', X.dDone);
+    for (const s2 of done) add('dstep done', '✓  ' + s2.text);
+  }
+  $('dsheet').classList.add('on');
+}
+const closeDetail = () => $('dsheet').classList.remove('on');
+$('dbg').onclick = closeDetail;
+addEventListener('keydown', e => e.key === 'Escape' && closeDetail());
 
 /* ── 家里人 ──────────────────────────────────────────────
    孩子不天天改名，大人不天天生孩子——这类东西该是一张表，
@@ -903,7 +1039,21 @@ function drawChat(box) {
       if (tasks) for (const i of tasks.items) b.appendChild(item(i));
       if (later?.items.length) {
         const ch = el('chips');
-        for (const s of later.items) { const p = el('chip','span'); p.textContent = s; ch.appendChild(p); }
+        // 模型给的「以后」不一定把在推的事都写上，但有指南的那件事必须够得着——
+        // 查回来的东西点不开，等于没查。所以缺的补进来，有内容的排前面。
+        const named = new Set(later.items.map(t => tidy(t)));
+        const missing = projCache
+          .filter(q => hasDepth(q) && !named.has(tidy(q.title)))
+          .sort((a, c) => Number(!!c.guide) - Number(!!a.guide))
+          .map(q => q.title);
+        for (const s of [...missing, ...later.items]) {
+          const proj = projFor(s);
+          const can = hasDepth(proj);
+          const p = el('chip' + (can ? ' can' : ''), 'span');
+          p.textContent = can ? `${s} ›` : s;
+          if (can) p.onclick = () => openDetail(proj);
+          ch.appendChild(p);
+        }
         b.appendChild(ch);
       }
       c.appendChild(b);
@@ -1074,6 +1224,9 @@ async function submit(text) {
   mode = ''; $('t').placeholder = X.ph;
   if (!r.ok) throw new Error(await r.text());
   day = await r.json();
+  // 这一轮可能建了新的事、或者挂上了查回来的那张表——重新拉一遍，
+  // 不然卡片上那几个 chip 点下去是空的。
+  await syncProjects();
   draw();
 }
 
