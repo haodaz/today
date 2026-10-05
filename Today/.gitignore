@@ -45,6 +45,8 @@ yarn-error.*
 
 # 本地数据（当天的 plan），不进仓库
 .data/
+# 演示档案是 scripts/demo-seed.mjs 生成的，不入库
+.data.demo/
 
 # 出图原件与备选（大，不进仓库）
 .figures-raw/

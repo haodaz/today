@@ -63,7 +63,10 @@ export default function App() {
             c.type === 'later' ? c.items :
             c.type === 'memory' ? c.items.map(i => i.text) : [c.text],
           ).join('');
-        if (/[\u4e00-\u9fa5]/.test(body)) setLang('zh');
+        // 她在手机上挑过就听她的；没挑过才看内容猜。
+        // 录 demo 要全程英文时，这是唯一不用重装 APK 的开关。
+        if (next.lang === 'zh' || next.lang === 'en') setLang(next.lang);
+        else if (/[\u4e00-\u9fa5]/.test(body)) setLang('zh');
       } catch {
         // 取不到就维持现状。不在屏幕上报错——
         // 一块陪着你的屏不该因为网络抖动就报警。
@@ -88,6 +91,7 @@ export default function App() {
   const later = turn.cards.find(c => c.type === 'later');
   const memory = turn.cards.find(c => c.type === 'memory');
   const items = tasks?.type === 'tasks' ? tasks.items : [];
+  const step = turn.step;
   const left = items.filter(i => !i.done).length;
 
   const toggle = async (id: string) => {
@@ -147,12 +151,39 @@ export default function App() {
             </Text>
           </View>
 
+          {/* 「接」：今天替她推的那一步。
+              一天一步，拆出来的其余几步收着不给看——
+              她能看见「保险 2/4」的那一刻，这就成了又一个要维护的看板。
+              放左栏是因为这是 Today 自己在办的事，和它说的话是一回事；
+              右栏那边高度不可控，加东西会把卡片顶出屏幕。 */}
+          {step?.text ? (
+            <View
+              style={[
+                s.stepBlock,
+                {borderLeftColor: step.forHer ? p.warm : p.accent},
+              ]}>
+              <Text style={[s.smallHead, {color: step.forHer ? p.warm : p.accent}]}>
+                {step.forHer ? x.oneStepHers : x.oneStep}
+              </Text>
+              <Text style={[s.stepText, {color: p.text}]} numberOfLines={2}>
+                {step.text}
+              </Text>
+              {step.note ? (
+                <Text style={[s.stepNote, {color: p.textFaint}]} numberOfLines={1}>
+                  {step.note}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           {later?.type === 'later' ? (
             <View style={s.laterBlock}>
               <Text style={[s.smallHead, {color: p.textFaint}]}>
                 {x.notToday}
               </Text>
-              {later.items.slice(0, 4).map((l, i) => (
+              {/* 三条，不是四条——上面那一步要地方，而「今天不做」
+                  是这块屏上最不紧要的一块。 */}
+              {later.items.slice(0, 3).map((l, i) => (
                 <Text
                   key={i}
                   style={[s.smallItem, {color: p.textFaint}]}
@@ -261,6 +292,16 @@ const s = StyleSheet.create({
   // 不要太大。它是陪着的，不是主角；主角是她今天要过的日子。
   tiger: {width: 62, height: 86, marginBottom: space.xs},
   say: {flexShrink: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 34},
+  // 左边一道竖线，三米外也看得出这是一块独立的东西，
+  // 而且比加标题框省垂直空间——左栏只剩八十来 dp。
+  stepBlock: {
+    marginTop: space.sm,
+    paddingLeft: space.md,
+    borderLeftWidth: 3,
+    borderRadius: 1,
+  },
+  stepText: {fontSize: type.task, lineHeight: 26, marginTop: 1},
+  stepNote: {fontSize: type.meta, marginTop: 3},
   laterBlock: {marginTop: space.sm, paddingBottom: space.xs},
   memBlock: {marginTop: space.md, paddingHorizontal: space.xs},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},

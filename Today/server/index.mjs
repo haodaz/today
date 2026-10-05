@@ -19,12 +19,29 @@ import {fileURLToPath} from 'node:url';
 import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
 import {converseJSON, DEFAULT_MODEL as BEDROCK_DEFAULT} from './bedrock.mjs';
 import {merge as mergeMem, forDisplay, count as memCount, EMPTY as EMPTY_MEM} from '../src/agent/memory.js';
+import * as Proj from '../src/agent/projects.js';
+import * as Ppl from '../src/agent/people.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const DATA = join(ROOT, '.data');
+/**
+ * 数据目录。默认 .data，可以用 TODAY_DATA 换一个。
+ *
+ * 做公开素材（落地页截图、demo 视频）时必须换：
+ * 截图里的内容本身就是家庭数据，跟有没有拍到房间是两回事。
+ * 演示跑在虚构档案上，她日常那份一个字节都不碰。
+ */
+const DATA = process.env.TODAY_DATA
+  ? (process.env.TODAY_DATA.startsWith('/')
+      ? process.env.TODAY_DATA
+      : join(ROOT, process.env.TODAY_DATA))
+  : join(ROOT, '.data');
 const DAYS = join(DATA, 'days');
 const MEM_FILE = join(DATA, 'memory.json');
+const PROJ_FILE = join(DATA, 'projects.json');
+const STEP_FILE = join(DATA, 'step.json');
+const PREFS_FILE = join(DATA, 'prefs.json');
+const PEOPLE_FILE = join(DATA, 'people.json');
 const PORT = Number(process.env.PORT || 8910);
 
 for (const d of [DATA, DAYS]) if (!existsSync(d)) mkdirSync(d, {recursive: true});
@@ -72,6 +89,24 @@ const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
  * 读记忆。旧文件是扁平的五类，迁进维度。
  * 迁移时给一个三十天前的 at —— 旧数据本来就该先被确认一遍再用。
  */
+/** 推着走的事。独立于某一天存——不然跨天就断了。 */
+/**
+ * 她挑的语言。null = 没挑过，跟设备走。
+ *
+ * 存在服务端而不是各屏自己记：她在手机上按一下，电视跟着变。
+ * 录 demo 要全程英文的时候，这是唯一不用重装 APK 的开关。
+ */
+const loadPrefs = () => readJSON(PREFS_FILE, {lang: null});
+const savePrefs = p => writeJSON(PREFS_FILE, p);
+/** 她挑过就听她的，没挑过才看请求里带的那个。 */
+const langOf = asked => loadPrefs().lang ?? (asked === 'zh' ? 'zh' : 'en');
+
+const loadPeople = () => readJSON(PEOPLE_FILE, Ppl.EMPTY);
+const savePeople = v => writeJSON(PEOPLE_FILE, v);
+
+const loadProjects = () => readJSON(PROJ_FILE, Proj.EMPTY);
+const saveProjects = p => writeJSON(PROJ_FILE, p);
+
 function loadMemory() {
   const m = readJSON(MEM_FILE, null);
   if (!m) return EMPTY_MEM;
@@ -227,6 +262,44 @@ async function callOne(name, messages) {
 }
 
 /** 调一次模型，拿回 JSON。主力挂了自动切下一家。 */
+const hasCJK = v =>
+  /[\u4e00-\u9fff]/.test(typeof v === 'string' ? v : JSON.stringify(v ?? ''));
+
+/**
+ * 要英文就得真是英文。
+ *
+ * 记忆整本是中文，提示词里写三遍「reply in English」也按不住——
+ * 中文语料会把它拽回去。所以英文这一路多走一步：
+ * 回来带汉字就把它自己那份answer摆回去，再要一次。
+ *
+ * 只在英文时多花这一次。中文是她平时用的，不该为了 demo 慢一倍。
+ */
+async function callJSONIn(messages, lang) {
+  const r = await callJSON(messages);
+  if (lang !== 'en' || !hasCJK(r)) return r;
+  console.warn('  要英文却回了中文，重来一次');
+  try {
+    // 加在最后一条 user 的末尾，不另起一轮。
+    // 试过补一轮对话（assistant + user），两次都还是中文——
+    // 它顺着上文的中文继续说，新的一轮压不过整本中文的记忆。
+    const again = await callJSON(
+      messages.map((m, i) =>
+        i === messages.length - 1
+          ? {...m, content:
+              m.content +
+              '\n\nIMPORTANT: write your entire JSON answer in English. ' +
+              'Every field — say, card labels, notes, later items, project titles and steps. ' +
+              'What you remember is written in Chinese; translate the meaning into English ' +
+              'and do not copy any Chinese characters into your answer.'}
+          : m,
+      ),
+    );
+    return hasCJK(again) ? r : again;   // 再不行就认了，有话总比空着强
+  } catch {
+    return r;
+  }
+}
+
 async function callJSON(messages) {
   let last;
   for (const name of CHAIN) {
@@ -251,10 +324,19 @@ function openItems() {
 async function ask(braindump, lang, mode) {
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
   const current = currentPlan();
-  const raw = await callJSON(
-    buildMessages({braindump, now, lang, mode, memory: loadMemory(), carryOver: carryOver(), current}),
+  const raw = await callJSONIn(
+    buildMessages({
+      braindump, now, lang, mode, current,
+      memory: loadMemory(), projects: loadProjects(), people: loadPeople(),
+      carryOver: carryOver(),
+    }),
+    lang,
   );
-  return toTurn(raw, current);
+  return {
+    ...toTurn(raw, current),
+    projects: Array.isArray(raw?.projects) ? raw.projects : [],
+    people: Array.isArray(raw?.people) ? raw.people : [],
+  };
 }
 
 /**
@@ -264,26 +346,129 @@ async function ask(braindump, lang, mode) {
  * Today 已经基于它记得的东西说了一句只有它能说的话——
  * 而不是一行写死的「我在听」。
  */
+/**
+ * 每天开场时端一步出来。
+ *
+ * 「接」真正发生在这里：她不用记「保险我进行到哪了」，
+ * 今天打开页面，下一步自己就在卡上了。
+ * 每件事每天只端一步——端过就记一笔，当天不再端同一件。
+ */
+/**
+ * 它建了一件事、附了一句要问的话，但那句话常常只写进了 projects，
+ * 没写进它对她说的话——她就永远看不到这个问题，这件事也就永远拆不开。
+ * 所以这里兜一道：这一轮新冒出来的待问，必须出现在它说的话里。
+ */
+function ensureAsk(say, before, after) {
+  const was = new Set((before?.items ?? []).filter(p => p.asked).map(p => p.id));
+  const fresh = (after?.items ?? []).find(p => p.asked && !p.done && !was.has(p.id));
+  if (!fresh) return say;
+  const q = fresh.asked.trim();
+  if (!q || (say ?? '').includes(q)) return say;
+  return [say?.trim(), q].filter(Boolean).join(' ');
+}
+
+/**
+ * 今天这一步，一天只挑一次，然后一整天不变。
+ *
+ * 电视和手机都会调 /greet。advanceOne 是会落账的——谁先调谁拿到，
+ * 后调的那块屏就整天什么都看不见。所以挑完存下来，
+ * 今天之内谁来问都是同一步。
+ */
+async function todayStep(lang) {
+  const k = dayKey();
+  const cached = readJSON(STEP_FILE, null);
+  const sameDay = cached?.date === k;
+  if (sameDay && cached.lang === lang) return cached.step ?? null;
+
+  // 换了语言不能重挑一步——advanceOne 是会落账的。
+  // 所以当天挑出来的原文留着，换语言只是换一层皮。
+  const raw = sameDay ? (cached.raw ?? null) : advanceOne();
+  const step = raw && lang === 'en' && hasCJK(raw) ? await englishStep(raw) : raw;
+  writeJSON(STEP_FILE, {date: k, lang, step, raw});
+  return step;
+}
+
+/**
+ * 她平时用中文，录 demo 时按了 EN——这一步是半年前用中文记下的。
+ * 她的记录不动（那是她的东西），只把端到屏幕上的这一份翻过去。
+ * 一天一次，缓存在 step.json 里。
+ */
+async function englishStep(step) {
+  try {
+    const r = await callJSON([
+      {role: 'system', content:
+        'Translate this one task from Chinese into natural, plain English. ' +
+        'Keep it as short as the original. Keep people\'s names as written. ' +
+        'Reply with JSON only: {"project":"...","text":"...","note":"..."} ' +
+        '(omit "note" if there is none).'},
+      {role: 'user', content: JSON.stringify({
+        project: step.project, text: step.text, note: step.note ?? undefined,
+      })},
+    ]);
+    if (!r?.text || hasCJK(r)) return step;
+    return {...step, project: r.project || step.project, text: r.text, note: r.note || undefined};
+  } catch {
+    return step;   // 翻不了就给原文，总比这一步不出现强
+  }
+}
+
+function advanceOne() {
+  const store = loadProjects();
+  const p = Proj.pickForToday(store.items);
+  if (!p) return null;
+  const step = Proj.nextStep(p);
+  if (!step) return null;
+  saveProjects(Proj.markMoved(store, p.id));
+  return {project: p.title, forHer: p.forHer === true, text: step.text, note: step.note};
+}
+
 async function greet(lang) {
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
   const open = openItems();
-  const r = await callJSON(buildGreeting({now, lang, memory: loadMemory(), open, left: open.length}));
+
+  // 守要在接之前算。接会把 offers 加一，先接再守的话
+  // 今天刚端出去的那件会立刻被算成「卡住了」，开场白就说重了。
+  const stuck = Proj.neglected(loadProjects().items);
+
+  // 接：今天替她推的那一步。一天只挑一次，之后一整天不变，
+  // 电视和手机看到的是同一步。刷新页面不会把她的事往前拱。
+  const step = await todayStep(lang);
+
+  // 今天已经端出去的那件不用再提一遍，说两次就成了催。
+  const watch = stuck.filter(p => p.title !== step?.project).map(p => p.title);
+
+  const r = await callJSONIn(
+    buildGreeting({
+      now, lang, memory: loadMemory(), people: loadPeople(),
+      open, left: open.length, step, watch,
+    }),
+    lang,
+  );
   let say = typeof r?.say === 'string' ? r.say.trim() : '';
   // 模型偶尔不守长度。这句在屏幕上是最大的一行，太长会吃掉半屏，
   // 所以超限就截到第一个句读为止——宁可短，不要满屏。
-  const LIMIT = lang === 'zh' ? 20 : 90;
+  //
+  // 上限看它实际说的是哪种话，不看我们要的是哪种。记忆是中文的时候，
+  // 问它要英文它也常常回中文——按 90 去量一句中文，等于没量。
+  const cjk = /[\u4e00-\u9fff]/.test(say);
+  const LIMIT = cjk ? 20 : 90;
   if (say.length > LIMIT) {
     const cut = say.slice(0, LIMIT + 8).match(/^[\s\S]*?[。，；,;.]/);
-    // 句读要跟着语言走，不能给英文补一个中文句号
-    say = (cut ? cut[0] : say.slice(0, LIMIT)).replace(/[，,；;]$/, lang === 'zh' ? '。' : '.');
+    // 句读也跟着它实际说的话走，别给中文句子补一个英文句点
+    say = (cut ? cut[0] : say.slice(0, LIMIT)).replace(/[，,；;]$/, cjk ? '。' : '.');
   }
-  return {say};
+  // step 单独给出去，不塞进 say——say 只有一行，塞进去就两件事了。
+  // 电视端把它当一张卡放，手机端也一样。
+  return {say, step: step ?? null, watch};
 }
 
 /**
  * 记忆卡。她得看得见 Today 记住了什么，才谈得上信任，也才能纠正。
  * 带「多久以前」和是否已旧——时间是这张卡最要紧的一列。
  */
+/** 安全那一类排最前。电视只放得下三条，这一类排在后面等于永远不出现。 */
+const SAFETY = '要紧的叮嘱';
+
 function memoryCard(m) {
   const groups = forDisplay(m);
   const items = groups.flatMap(g =>
@@ -295,6 +480,10 @@ function memoryCard(m) {
       stale: i.stale,
     })),
   );
+  // 这块屏在厨房里也看得见，而厨房那一眼要的就是这一类：
+  // 过敏、吃药、医生交代过的话。它按维度顺序排在最后，
+  // 电视 slice(0,3) 一刀切下去，正好把最该看见的切掉。
+  items.sort((a, b) => Number(b.dim === SAFETY) - Number(a.dim === SAFETY));
   return items.length ? {type: 'memory', items, groups} : null;
 }
 
@@ -321,7 +510,31 @@ createServer(async (req, res) => {
     return res.end();
   }
 
+  /**
+   * 外层那张讲故事的静态页。
+   *
+   * 放在 doc/site/ 而不是这儿，是为了它能原样丢到任何静态托管上——
+   * 评委点的是一个链接，不该依赖这台笔记本开着。
+   * 这里只是顺手也发一份，好让「登录 → 进 app」那条路在本地是通的。
+   */
   if (url.pathname === '/' || url.pathname === '/index.html') {
+    const f = join(ROOT, '..', 'doc', 'site', 'index.html');
+    if (existsSync(f)) {
+      res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
+      return res.end(readFileSync(f));
+    }
+  }
+  if (url.pathname.startsWith('/shots/')) {
+    const name = url.pathname.slice('/shots/'.length);
+    const f = join(ROOT, '..', 'doc', 'site', 'shots', name);
+    if (/^[\w.-]+\.png$/.test(name) && existsSync(f)) {
+      res.writeHead(200, {'Content-Type': 'image/png', 'Cache-Control': 'max-age=60'});
+      return res.end(readFileSync(f));
+    }
+    return json(res, 404, {error: 'no such shot'});
+  }
+
+  if (url.pathname === '/app' || url.pathname === '/index.html') {
     res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
     return res.end(readFileSync(join(HERE, 'phone.html')));
   }
@@ -383,16 +596,23 @@ createServer(async (req, res) => {
     try {
       const {braindump, lang, mode} = JSON.parse(await readBody(req));
       if (!braindump?.trim()) return json(res, 400, {error: '空的'});
-      const L = lang === 'zh' ? 'zh' : 'en';
+      const L = langOf(lang);
       const M = ['note', 'write'].includes(mode) ? mode : undefined;
 
       // 她说的话也进对话流——这是一条对话，不是一次查询
       appendMessage({who: 'her', text: braindump.trim(), mode: M});
 
       const before = currentPlan();
-      const {turn, remember} = await ask(braindump, L, M);
+      const {turn, remember, projects, people} = await ask(braindump, L, M);
       const mem = mergeMem(loadMemory(), remember);
       writeJSON(MEM_FILE, mem);
+      if (people.length) savePeople(Ppl.apply(loadPeople(), people));
+      if (projects.length) {
+        const prev = loadProjects();
+        const next = Proj.apply(prev, projects);
+        saveProjects(next);
+        turn.say = ensureAsk(turn.say, prev, next);
+      }
       // 这一轮到底改了什么。界面上那行提示要说得出内容，
       // 不能只说「更新了」——那等于没说。
       const day = appendMessage({
@@ -428,13 +648,22 @@ createServer(async (req, res) => {
     if (later) cards.push(later);
     const mc = memoryCard(loadMemory());
     if (mc) cards.push(mc);
-    return json(res, 200, {say: last?.text ?? '', cards});
+    // 语言跟着这块屏的内容一起下发，电视不用再多问一个接口。
+    // 今天这一步也在这儿给——「接」是四个能力里最能说明它在替她办事的那个，
+    // 只在手机上看得见等于白做：整天开着的是这块屏。
+    const lang = langOf(null);
+    return json(res, 200, {
+      say: last?.text ?? '',
+      cards,
+      lang: loadPrefs().lang,
+      step: (await todayStep(lang)) ?? null,
+    });
   }
 
   // Today 先开口。手机页一打开就调这个。
   if (url.pathname === '/greet') {
     try {
-      const lang = url.searchParams.get('lang') === 'zh' ? 'zh' : 'en';
+      const lang = langOf(url.searchParams.get('lang'));
       return json(res, 200, await greet(lang));
     } catch (e) {
       // 开场白拿不到不该挡住她说话——退回空串，页面自己有兜底
@@ -485,6 +714,56 @@ createServer(async (req, res) => {
     const t = loadDay()?.threads?.[i];
     if (!t) return json(res, 404, {error: 'no such thread'});
     return json(res, 200, {messages: t.messages});
+  }
+
+  /** 她在推着的事。界面上看得见「下一步」，但看不见进度条。 */
+  if (url.pathname === '/projects') {
+    const store = loadProjects();
+    return json(res, 200, {
+      items: store.items.filter(p => !p.done).map(p => ({
+        id: p.id, title: p.title, forHer: p.forHer === true,
+        next: Proj.nextStep(p)?.text ?? null,
+        asked: p.asked ?? null,
+      })),
+    });
+  }
+
+  /** 今天该推进的那一步。开场时调一次。 */
+  if (url.pathname === '/advance' && req.method === 'POST') {
+    return json(res, 200, (await todayStep(langOf(url.searchParams.get('lang')))) ?? {});
+  }
+
+  /**
+   * 中文还是英文。她在手机上按，电视跟着变。
+   * lang: 'zh' | 'en' | null（null = 还给设备，自己判）
+   */
+  if (url.pathname === '/prefs' && req.method === 'POST') {
+    const {lang} = JSON.parse((await readBody(req)) || '{}');
+    const next = lang === 'zh' || lang === 'en' ? lang : null;
+    savePrefs({lang: next});
+    // 别删 step.json：今天这一步已经落过账了，删了就再也挑不出来
+    //（lastMoved 是今天，dueToday 直接不认），这一天就空着。
+    // 换语言只换那层皮，todayStep 自己会按语言重翻一次。
+    // 开场白本来每次都重新生成，不用管。
+    console.log(`[语言] ${next ?? '跟设备'}`);
+    return json(res, 200, {lang: next});
+  }
+  if (url.pathname === '/prefs') return json(res, 200, loadPrefs());
+
+  /**
+   * 家里人的档案。低频变化，所以可以直接改，不用跟它商量。
+   * POST 的 body 就是一组 op（和模型用的是同一套），这样界面和模型走同一条路。
+   */
+  if (url.pathname === '/people' && req.method === 'POST') {
+    const body = JSON.parse((await readBody(req)) || '{}');
+    const ops = Array.isArray(body) ? body : Array.isArray(body.ops) ? body.ops : [body];
+    const next = Ppl.apply(loadPeople(), ops);
+    savePeople(next);
+    return json(res, 200, {people: Ppl.forDisplay(next, langOf(body.lang) === 'zh')});
+  }
+  if (url.pathname === '/people') {
+    const zh = langOf(url.searchParams.get('lang')) === 'zh';
+    return json(res, 200, {people: Ppl.forDisplay(loadPeople(), zh)});
   }
 
   if (url.pathname === '/memory') return json(res, 200, loadMemory());

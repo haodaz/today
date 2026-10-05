@@ -73,6 +73,14 @@
   nav .icon svg{width:21px;height:21px;fill:none;stroke:currentColor;
     stroke-width:2;stroke-linecap:round}
   nav .icon:active{color:var(--ink)}
+  /* 中 / EN。她按一下，这屏和电视一起换——录 demo 要全程英文时用得上。
+     做得比 tab 小一号：这是设置，不是她每天要看的东西。 */
+  #lang{
+    border:0;background:transparent;padding:5px 7px;cursor:pointer;
+    font:600 13px/1 inherit;letter-spacing:.06em;color:var(--faint);
+    border-radius:8px;transition:color .2s,background .2s;
+  }
+  #lang:active{color:var(--ember);background:var(--ember-tint)}
 
   /* 历史：从左边滑出的一层，不是另一个页面 */
   .sheet{position:fixed;inset:0;z-index:40;display:flex}
@@ -90,6 +98,38 @@
   @keyframes slide{from{transform:translateX(-14px);opacity:.4}}
   .sheeth{margin:4px 6px 12px;font-size:11.5px;letter-spacing:.16em;
     color:var(--faint);font-weight:600}
+  /* 家里人。低频变化的东西，所以是一张可以直接改的表，
+     不用每次绕着对话跟它说一遍。 */
+  .who{
+    padding:11px 13px;border-radius:15px;margin-bottom:7px;cursor:pointer;
+    background:rgba(255,255,255,.5);border:1px solid var(--line);
+  }
+  @media (prefers-color-scheme: dark){ .who{background:rgba(255,255,255,.05)} }
+  .who .n{font-size:15px;font-weight:500}
+  .who .d{font-size:12.5px;color:var(--faint);margin-top:3px}
+  .who.add{text-align:center;color:var(--ember);font-size:14px;
+    background:transparent;border-style:dashed}
+  .form{display:grid;gap:7px;margin:2px 0 10px}
+  .form input{
+    width:100%;box-sizing:border-box;padding:9px 11px;font:inherit;font-size:14px;
+    border:1px solid var(--line);border-radius:11px;background:var(--glass);
+    color:var(--ink);outline:none;
+  }
+  .form input:focus{border-color:var(--ember)}
+  .seg{display:flex;gap:6px}
+  .seg button{
+    flex:1;padding:8px 0;font:inherit;font-size:13px;cursor:pointer;
+    border:1px solid var(--line);border-radius:11px;background:transparent;color:var(--faint);
+  }
+  .seg button.on{background:var(--ember-tint);border-color:var(--ember);color:var(--ember)}
+  .frow{display:flex;gap:7px}
+  .frow button{
+    flex:1;padding:9px 0;font:inherit;font-size:14px;font-weight:500;cursor:pointer;
+    border-radius:11px;border:1px solid var(--line);background:transparent;color:var(--ink);
+  }
+  .frow button.go{background:var(--ember);border-color:var(--ember);color:#fff}
+  .frow button.rm{color:#C2554B;border:0}
+
   .thread{
     padding:12px 14px;border-radius:15px;margin-bottom:7px;
     background:rgba(255,255,255,.5);border:1px solid var(--line);
@@ -111,6 +151,19 @@
     margin:10px 0 0;max-width:19em}
   .hi.pending{color:var(--faint)}
   .stat{display:flex;gap:7px;margin:14px 0 2px;flex-wrap:wrap;justify-content:center}
+  /* 今天这一步。她唯一需要看见的「进展」——不是进度条，是一句今天做什么。
+     大事拆完剩下的几步我自己收着，这儿永远只有一行。 */
+  .step{
+    display:none;margin:15px 0 0;padding:12px 14px;border-radius:14px;
+    background:var(--ember-tint);max-width:21em;text-align:left;
+  }
+  .step.on{display:block}
+  .step .sl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ember);font-weight:600}
+  .step .st{font-size:15px;line-height:1.5;margin-top:4px}
+  .step .sn{font-size:12.5px;color:var(--faint);margin-top:3px}
+  .step.her{background:color-mix(in srgb,var(--warm) 15%,transparent)}
+  .step.her .sl{color:var(--warm)}
   /* 卡牌：中间那张是活的，两边露一点。横向可滑。 */
   .deck{
     display:flex;gap:11px;margin:16px -20px 2px;padding:4px 20px 10px;
@@ -276,6 +329,7 @@
   <button id="tabToday" class="on">Today</button>
   <button id="tabTodo">Todo</button>
   <span class="grow"></span>
+  <button id="lang" aria-label="language"></button>
   <button class="icon" id="fresh" aria-label="new">
     <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
   </button>
@@ -285,6 +339,8 @@
 <div class="sheet" id="sheet" hidden>
   <div class="sheetbg" id="sheetbg"></div>
   <div class="sheetbody">
+    <p class="sheeth" id="famh"></p>
+    <div id="family"></div>
     <p class="sheeth" id="sheeth"></p>
     <div id="threads"></div>
   </div>
@@ -294,6 +350,8 @@
   <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
   <p class="hi pending" id="hi"></p>
   <div class="stat" id="stat"></div>
+  <!-- 「接」：今天我替你推的那一步。一天一步，剩下的不给她看。 -->
+  <div class="step" id="step"></div>
   <!-- 快捷模式。不是必选项——她永远可以直接说话。
        卡片只是把最常见的几种意图变成一次点击。 -->
   <div class="deck" id="deck"></div>
@@ -334,6 +392,12 @@ const DICT = {
   zh: {today:'今天', todo:'待办', ph:'说点什么，或者按右边说话', drop:'算了',
        hearing:'我在听…', taking:'我记一下…', lead:'我帮你记着今天这些事',
        quiet:'我先收着', remember:'我还记着', err:'没弄成：', fallback:'我在。',
+       stepLabel:'今天这一步，我替你推', stepHer:'今天这一步，是你自己的事',
+       family:'家里人', addPerson:'＋ 添一个人', save:'存下', del:'删掉',
+       fName:'名字', fEn:'英文名（录英文 demo 时用）', fRel:'关系：儿子 / 女儿 / 老公 / 我妈…',
+       fBorn:'生日，写到月就行：2023-04', fAge:'只记得几岁？填数字就行',
+       fNote:'一句长期成立的话：上小班、对花生过敏',
+       theyHe:'他', theyShe:'她', theyNone:'先不说', fBlank:'还没填',
        updated:'更新了', history:'今天聊过的', noHistory:'还没有别的对话',
        today:'今天', yday:'昨天', daysAgo:d=>`${d} 天前`, stale:'要确认一下',
        cAdd:n=>`记上 ${n}`, cDone:n=>`${n} 做完了`,
@@ -369,6 +433,12 @@ const DICT = {
        ],
        copy:'Copy', copied:'Copied',
        fallback:"I'm here.",
+       stepLabel:"Today's one step, I'm moving it", stepHer:"Today's one step — this one is yours",
+       family:'Family', addPerson:'＋ Add someone', save:'Save', del:'Remove',
+       fName:'Name', fEn:'Name in English', fRel:'Who they are: son / daughter / husband / my mum…',
+       fBorn:'Born — month is enough: 2023-04', fAge:'Only know their age? Just the number',
+       fNote:'One thing that stays true: nursery class, peanut allergy',
+       theyHe:'he', theyShe:'she', theyNone:'rather not say', fBlank:'nothing filled in yet',
        noMic:"This browser can't record. Type instead.",
        insecure:'Open the https address to use the mic. This one is http, so the browser blocks it.',
        denied:'Microphone is blocked. Allow this site to use it in your browser settings.',
@@ -378,25 +448,54 @@ const DICT = {
        none:'Nothing yet today.'},
 };
 /* UI 语言默认跟设备，但如果当天的对话已经是中文，就跟着对话走——
-   卡片引导语是英文、里面的事情是中文，看着是两个人在说话。 */
+   卡片引导语是英文、里面的事情是中文，看着是两个人在说话。
+   她在顶上按过那个按钮之后，这套自动的就全让位——她说了算。 */
 let LANG = (navigator.language||'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
 let X = DICT[LANG];
-const relang = (extra = '') => {
-  const text = (day.messages ?? []).map(m => m.text || '').join('') + extra;
-  const next = /[\u4e00-\u9fa5]/.test(text) ? 'zh' : LANG;
-  if (next === LANG) return;
-  LANG = next; X = DICT[LANG];
-  document.documentElement.lang = 'zh-CN';
+let chosen = false;              // 她自己挑过没有
+
+/** 把当前语言刷到屏幕上。只管画，不管决定画哪个。 */
+function paintLang() {
+  X = DICT[LANG];
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
   $('tabToday').textContent = X.today;
   $('tabTodo').textContent = X.todo;
   $('t').placeholder = X.ph;
   $('drop').textContent = X.drop;
+  // 按钮上写的是「按下去会变成什么」，不是现在是什么
+  $('lang').textContent = LANG === 'zh' ? 'EN' : '中';
+}
+
+const relang = (extra = '') => {
+  if (chosen) return;            // 她挑过了，别再替她改
+  const text = (day.messages ?? []).map(m => m.text || '').join('') + extra;
+  const next = /[\u4e00-\u9fa5]/.test(text) ? 'zh' : LANG;
+  if (next === LANG) return;
+  LANG = next;
+  paintLang();
 };
-document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
-$('tabToday').textContent = X.today;
-$('tabTodo').textContent = X.todo;
-$('t').placeholder = X.ph;
-$('drop').textContent = X.drop;
+paintLang();
+
+/* 换语言。不是只换这块屏上的字——电视那边也跟着变，
+   所以要先告诉服务端，再让 Today 用新语言重新说一句开场。 */
+$('lang').onclick = async () => {
+  LANG = LANG === 'zh' ? 'en' : 'zh';
+  chosen = true;
+  paintLang();
+  if (!$('stage').classList.contains('small')) { drawDeck(); drawStat(); }
+  try {
+    await fetch('/prefs', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lang: LANG}),
+    });
+  } catch {}
+  // 开场白是上一个语言生成的，留着就是半中半英
+  if (!$('stage').classList.contains('small')) {
+    $('hi').classList.add('pending');
+    $('hi').textContent = '';
+    await openLaunch();
+  }
+};
 
 let day = {messages: [], memory: null};
 let tab = 'today';
@@ -407,6 +506,12 @@ const el = (cls, tag='div') => { const e=document.createElement(tag); e.classNam
 /* 开场：形象在顶部居中，Today 先说一句只有它能说的话。
    她一旦开口，形象收起来——舞台让给对话。 */
 (async () => {
+  // 她上次挑的语言存在服务端，不在这台手机上——
+  // 换个浏览器打开、或者电视先开着，看到的都是同一种语言。
+  try {
+    const {lang} = await (await fetch('/prefs')).json();
+    if (lang === 'zh' || lang === 'en') { LANG = lang; chosen = true; paintLang(); }
+  } catch {}
   try { day = await (await fetch('/day')).json(); } catch {}
   draw();
   await openLaunch();
@@ -415,14 +520,32 @@ const el = (cls, tag='div') => { const e=document.createElement(tag); e.classNam
 /** launch：形象 + 它先说一句 + 今天的现状。不在对话流里，是一屏问候。 */
 async function openLaunch() {
   relang();
+  let step = null;
   try {
-    const {say} = await (await fetch(`/greet?lang=${LANG}`)).json();
-    $('hi').textContent = say || X.fallback;
+    const g = await (await fetch(`/greet?lang=${LANG}`)).json();
+    $('hi').textContent = g.say || X.fallback;
+    step = g.step;
   } catch { $('hi').textContent = X.fallback; }
   $('hi').classList.remove('pending');
   // 招呼可能是中文而设备是英文——拿到之后再判一次语言
   relang($('hi').textContent);
+  // 这一步的小标题得等语言定下来再画，不然中文页面上会顶着一行英文
+  drawStep(step);
   drawStat();
+}
+
+/** 今天这一步。没有就整块不出现——宁可空着，不要放一句占位的废话。 */
+function drawStep(step) {
+  const box = $('step');
+  box.className = 'step';
+  if (!step?.text) return;
+  box.innerHTML = '';
+  const l = el('sl'); l.textContent = step.forHer ? X.stepHer : X.stepLabel;
+  const t = el('st'); t.textContent = step.text;
+  box.append(l, t);
+  if (step.note) { const n = el('sn'); n.textContent = step.note; box.append(n); }
+  box.classList.add('on');
+  if (step.forHer) box.classList.add('her');
 }
 
 function drawStat() {
@@ -509,7 +632,125 @@ $('fresh').onclick = async () => {
   await openLaunch();
 };
 
+/* ── 家里人 ──────────────────────────────────────────────
+   孩子不天天改名，大人不天天生孩子——这类东西该是一张表，
+   不是每次都要在对话里重说一遍。
+   年龄这一栏是算出来的：存生日，不存岁数，所以它明年自己会变。 */
+
+let famEditing = null;      // 正在改谁的 id；'new' = 在加人
+
+async function loadFamily() {
+  try { return (await (await fetch(`/people?lang=${LANG}`)).json()).people ?? []; }
+  catch { return []; }
+}
+
+async function drawFamily() {
+  $('famh').textContent = X.family;
+  const box = $('family');
+  box.innerHTML = '';
+  const list = await loadFamily();
+
+  for (const p of list) {
+    if (famEditing === p.id) { box.appendChild(personForm(p)); continue; }
+    const row = el('who');
+    const n = el('n'); n.textContent = p.en ? `${p.name} · ${p.en}` : p.name;
+    const bits = [p.rel, p.age, p.they].filter(Boolean);
+    const d = el('d'); d.textContent = bits.join(' · ') || X.fBlank;
+    row.append(n, d);
+    row.onclick = () => { famEditing = p.id; drawFamily(); };
+    box.appendChild(row);
+  }
+
+  if (famEditing === 'new') box.appendChild(personForm({}));
+  else {
+    const add = el('who add');
+    add.textContent = X.addPerson;
+    add.onclick = () => { famEditing = 'new'; drawFamily(); };
+    box.appendChild(add);
+  }
+}
+
+/** 一个人的表单。她给什么存什么，不逼她填完。 */
+function personForm(p) {
+  const f = el('form');
+  const field = (key, ph, val) => {
+    const i = document.createElement('input');
+    i.placeholder = ph; i.value = val ?? ''; i.dataset.k = key;
+    return i;
+  };
+  // 生日这一栏只回填她真填过的。approx 的那个年份是从「三岁」倒推出来的，
+  // 显示在这儿她一按存下就变成了确定的生日——猜的东西不能让她替它背书。
+  const exact = p.born && !p.approx ? p.born : '';
+  const inputs = [
+    field('name', X.fName, p.name),
+    field('en', X.fEn, p.en),
+    field('rel', X.fRel, p.rel),
+    field('born', X.fBorn, exact),
+  ];
+  // 没有确切生日时才问岁数，并且把算出来的岁数填回去给她看
+  if (!exact) inputs.push(field('age', X.fAge, p.ageNum ?? ''));
+  f.append(...inputs);
+
+  // 怎么称呼。不选就是不选——留空我用 they，不替她猜。
+  let they = p.they ?? '';
+  const seg = el('seg');
+  for (const [v, label] of [['he', X.theyHe], ['she', X.theyShe], ['', X.theyNone]]) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.classList.toggle('on', they === v);
+    b.onclick = () => {
+      they = v;
+      for (const x of seg.children) x.classList.remove('on');
+      b.classList.add('on');
+    };
+    seg.appendChild(b);
+  }
+  f.appendChild(seg);
+  f.appendChild(field('note', X.fNote, p.note));
+
+  const row = el('frow');
+  const save = document.createElement('button');
+  save.className = 'go'; save.textContent = X.save;
+  save.onclick = async () => {
+    const op = {op: 'set', they: they || undefined};
+    if (p.id) op.id = p.id;
+    for (const i of f.querySelectorAll('input')) {
+      const v = i.value.trim();
+      if (v) op[i.dataset.k] = i.dataset.k === 'age' ? Number(v) : v;
+    }
+    if (!op.name) return;                 // 没名字不是一个人
+    await fetch('/people', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ops: [op], lang: LANG}),
+    }).catch(() => {});
+    famEditing = null;
+    drawFamily();
+  };
+  const cancel = document.createElement('button');
+  cancel.textContent = X.drop;
+  cancel.onclick = () => { famEditing = null; drawFamily(); };
+  row.append(cancel, save);
+
+  if (p.id) {
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = X.del;
+    rm.onclick = async () => {
+      await fetch('/people', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ops: [{op: 'drop', id: p.id}]}),
+      }).catch(() => {});
+      famEditing = null;
+      drawFamily();
+    };
+    row.appendChild(rm);
+  }
+  f.appendChild(row);
+  return f;
+}
+
 $('menu').onclick = async () => {
+  famEditing = null;
+  drawFamily();
   $('sheeth').textContent = X.history;
   const box = $('threads');
   box.innerHTML = '';

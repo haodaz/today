@@ -17,6 +17,8 @@ const DICT = {
     empty: '今天还没理。',
     scanHint: '手机扫一下，说说今天',
     iRemember: '我还记着',
+    oneStep: '今天这一步，我替你推',
+    oneStepHers: '今天这一步，是你自己的事',
     weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
     date: (m: number, d: number, w: string) => `${m} 月 ${d} 日 · ${w}`,
   },
@@ -29,6 +31,8 @@ const DICT = {
     empty: "Today isn't sorted yet.",
     scanHint: 'Scan with your phone and tell it about today',
     iRemember: 'I also remember',
+    oneStep: "TODAY'S ONE STEP — I'M MOVING IT",
+    oneStepHers: "TODAY'S ONE STEP — THIS ONE IS YOURS",
     weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     date: (m: number, d: number, w: string) =>
       `${['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1]} ${d} · ${w}`,
@@ -36,9 +40,13 @@ const DICT = {
 } as const;
 
 /**
- * 跟随设备语言。
- * 录 demo 视频时要强制英文（Amazon 规定视频必须英文），
- * 把 OVERRIDE 改成 'en' 即可——比去系统设置里改语言快，也不影响她平时用。
+ * 跟随设备语言——这只是没人挑过时的默认。
+ *
+ * 录 demo 要全程英文（Amazon 规定视频必须英文）就在手机顶上按「EN」，
+ * 电视这边下一次轮询（五秒内）自己就跟着变，不用改这里、不用重装 APK。
+ * 她挑过的语言跟着 /turn 一起下发，优先级高于这个函数。
+ *
+ * OVERRIDE 留着是给排查用的：想绕开服务端单独验这块屏的时候改它。
  */
 const OVERRIDE: Lang | null = null;
 

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Today — a small tiger who keeps today for you</title>
+<meta name="description" content="A screen that's already on, holding the shape of your day. Built for Fire TV.">
+<style>
+  :root{
+    --ink:#1C1A2A; --soft:#4A4660; --faint:#8A86A0;
+    --ember:#6B5CE7; --ember-deep:#574AD1; --ember-tint:#ECE9FB;
+    --warm:#E89B5B;
+    --sky-a:#EEF1FC; --sky-b:#F4F1FB; --sky-c:#FBF0F2;
+    --card:rgba(255,255,255,.72); --line:rgba(28,26,42,.09);
+    --w:1080px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; color:var(--ink);
+    font:400 17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:linear-gradient(165deg,var(--sky-a) 0%,var(--sky-b) 52%,var(--sky-c) 100%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--w);margin:0 auto;padding:0 24px}
+  section{padding:78px 0}
+  h1,h2,h3{line-height:1.2;letter-spacing:-.02em;margin:0}
+  h1{font-size:clamp(38px,6.2vw,66px);font-weight:300}
+  h2{font-size:clamp(26px,3.4vw,38px);font-weight:400;margin-bottom:14px}
+  h3{font-size:19px;font-weight:600;letter-spacing:0}
+  p{margin:0 0 16px}
+  .lede{font-size:clamp(18px,2.1vw,21px);color:var(--soft);max-width:33em}
+  .eyebrow{
+    font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ember);margin-bottom:14px
+  }
+
+  /* ── 顶 ───────────────────────────────── */
+  header{padding:26px 0 0}
+  .bar{display:flex;align-items:center;gap:12px}
+  .mark{display:flex;align-items:center;gap:10px;font-weight:600;font-size:18px;letter-spacing:-.01em}
+  .mark img{width:30px;height:30px;object-fit:contain;object-position:top}
+  .grow{flex:1}
+  .ghost{
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    padding:9px 17px;border-radius:999px;font:inherit;font-size:14.5px;font-weight:500;
+    cursor:pointer;text-decoration:none;display:inline-block;
+  }
+  .ghost:hover{border-color:var(--ember);color:var(--ember)}
+  .solid{
+    border:0;background:linear-gradient(145deg,var(--ember),var(--ember-deep));color:#fff;
+    padding:13px 26px;border-radius:999px;font:inherit;font-size:16px;font-weight:600;
+    cursor:pointer;text-decoration:none;display:inline-block;
+    box-shadow:0 8px 22px rgba(107,92,231,.28);
+  }
+  .solid:active{transform:translateY(1px)}
+
+  /* ── 开场 ─────────────────────────────── */
+  .hero{padding:52px 0 26px;display:grid;grid-template-columns:1.25fr .75fr;gap:40px;align-items:center}
+  .hero img.tiger{width:100%;max-width:290px;display:block;margin:0 auto;filter:drop-shadow(0 20px 36px rgba(28,26,42,.14))}
+  .quote{
+    border-left:3px solid var(--ember);padding:4px 0 4px 20px;margin:28px 0 30px;
+    color:var(--soft);font-size:18px;line-height:1.55
+  }
+  .quote b{color:var(--ink);font-weight:500}
+  .cta{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .cta small{color:var(--faint);font-size:13.5px}
+
+  /* ── 三眼 ─────────────────────────────── */
+  .glances{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}
+  .glance{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  }
+  .glance .when{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--warm);margin-bottom:8px}
+  .glance p{margin:0;color:var(--soft);font-size:15.5px;line-height:1.55}
+
+  /* ── 对应关系 ─────────────────────────── */
+  .pair{display:grid;grid-template-columns:300px 1fr;gap:34px;align-items:center;margin-top:34px}
+  .screen{border-radius:22px;overflow:hidden;border:1px solid var(--line);
+    box-shadow:0 24px 60px rgba(28,26,42,.16);background:#fff}
+  .screen img{display:block;width:100%}
+  .screen.tv{border-radius:14px}
+  .capt{font-size:13.5px;color:var(--faint);margin-top:10px;text-align:center}
+  .same{
+    background:var(--ember-tint);border-radius:14px;padding:14px 18px;margin:20px 0 0;
+    font-size:15.5px;color:var(--ember-deep)
+  }
+  .same b{font-weight:600}
+
+  /* ── 四个能力 ─────────────────────────── */
+  .four{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:28px}
+  .cap{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px}
+  .cap h3{margin-bottom:7px}
+  .cap p{margin:0;color:var(--soft);font-size:15.5px;line-height:1.6}
+  .trace{
+    margin-top:30px;background:var(--card);border:1px solid var(--line);
+    border-radius:20px;padding:26px 26px 10px
+  }
+  .turn{display:flex;gap:14px;margin-bottom:18px;align-items:flex-start}
+  .who{
+    flex:0 0 58px;font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);padding-top:4px
+  }
+  .said{font-size:16.5px;line-height:1.6;margin:0}
+  .turn.her .said{color:var(--ink);font-weight:500}
+  .turn.it .said{color:var(--soft)}
+
+  /* ── 不做什么 ─────────────────────────── */
+  .nots{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:11px}
+  .nots li{
+    padding-left:30px;position:relative;color:var(--soft);font-size:16px;line-height:1.6
+  }
+  .nots li::before{
+    content:"";position:absolute;left:6px;top:11px;width:11px;height:1.5px;
+    background:var(--warm);border-radius:2px
+  }
+  .nots b{color:var(--ink);font-weight:600}
+
+  footer{padding:54px 0 70px;border-top:1px solid var(--line);color:var(--faint);font-size:14.5px}
+  footer a{color:var(--soft)}
+
+  /* ── 登录 ─────────────────────────────── */
+  .veil{
+    position:fixed;inset:0;z-index:50;display:none;place-items:center;padding:24px;
+    background:rgba(28,26,42,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)
+  }
+  .veil.on{display:grid}
+  .panel{
+    width:100%;max-width:382px;background:#fff;border-radius:26px;padding:34px 30px 28px;
+    box-shadow:0 30px 70px rgba(28,26,42,.26);text-align:center;
+    animation:rise .24s cubic-bezier(.2,.7,.3,1)
+  }
+  @keyframes rise{from{transform:translateY(10px);opacity:0}}
+  .panel img{width:92px;display:block;margin:0 auto 10px;object-fit:contain}
+  .panel h3{font-size:21px;font-weight:500;letter-spacing:-.01em}
+  .panel p{color:var(--faint);font-size:14.5px;margin:7px 0 20px}
+  .panel input{
+    width:100%;padding:14px 16px;font:inherit;font-size:16px;margin-bottom:11px;
+    border:1px solid var(--line);border-radius:14px;outline:none;background:#FBFAFE;color:var(--ink)
+  }
+  .panel input:focus{border-color:var(--ember);background:#fff}
+  .panel .solid{width:100%;padding:14px 0}
+  .panel .fine{font-size:12.5px;color:var(--faint);margin:16px 0 0;line-height:1.5}
+  .x{position:absolute;top:0;right:0;padding:14px 18px;border:0;background:transparent;
+    color:var(--faint);font-size:22px;cursor:pointer;line-height:1}
+  .panel{position:relative}
+
+  @media (max-width:860px){
+    section{padding:54px 0}
+    .hero{grid-template-columns:1fr;gap:18px;padding-top:30px}
+    .hero img.tiger{max-width:200px}
+    .glances,.four{grid-template-columns:1fr}
+    .pair{grid-template-columns:1fr;gap:26px}
+    .screen.phone{max-width:280px;margin:0 auto}
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#F2F0F8; --soft:#B9B4CC; --faint:#817C98;
+      --ember:#A094FF; --ember-deep:#8477F0; --ember-tint:#2A2640; --warm:#E0A472;
+      --sky-a:#16151F; --sky-b:#1A1826; --sky-c:#201A24;
+      --card:rgba(255,255,255,.055); --line:rgba(255,255,255,.1);
+    }
+    .panel{background:#211F2E}
+    .panel input{background:#1A1826;color:var(--ink)}
+    .screen{background:#211F2E}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <div class="mark"><img src="shots/tiger.png" alt=""> Today</div>
+    <span class="grow"></span>
+    <a class="ghost" href="https://github.com/haodaz/today">Source</a>
+    <button class="ghost" onclick="openIn()">Sign in</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 开场 -->
+  <div class="hero">
+    <div>
+      <h1>A small tiger who keeps today for you.</h1>
+      <p class="lede" style="margin-top:18px">
+        Most of the day the television is off. Turn it on and it sells you something,
+        or hands you a feed with no end. Today makes it something else — a screen
+        that stays on in the room you live in, holding the shape of your day.
+      </p>
+      <div class="quote">
+        A to-do list says <b>here is what you owe.</b><br>
+        Today says <b>I'm keeping these for you.</b><br>
+        The weight sits with the tiger, not with you.
+      </div>
+      <div class="cta">
+        <button class="solid" onclick="openIn()">Open Today</button>
+        <small>Built for the Fire TV track · Build, Ship, Shape</small>
+      </div>
+    </div>
+    <img class="tiger" src="shots/tiger.png" alt="Today, a small tiger">
+  </div>
+
+  <!-- 为什么是电视 -->
+  <section>
+    <div class="eyebrow">Why a television</div>
+    <h2>A screen you have to open is a screen you open when you remember to.</h2>
+    <p class="lede">
+      And remembering is the thing you are short of. The television is already on.
+      It costs nothing to look at. So Today is built for the glance, not the session —
+      and there are three of them in a day.
+    </p>
+
+    <div class="glances">
+      <div class="glance">
+        <div class="when">Coming in</div>
+        <p>What is still open today, and what is already handled.</p>
+      </div>
+      <div class="glance">
+        <div class="when">Cooking</div>
+        <p>The standing notes. The things that must not be forgotten, sitting where you can see them.</p>
+      </div>
+      <div class="glance">
+        <div class="when">On the way out</div>
+        <p>The one thing to take. The errand that fits the trip you are already making.</p>
+      </div>
+    </div>
+
+    <p style="margin-top:26px;color:var(--soft)">
+      Closer to the board in a hotel lobby than to an app: always on, never asking to be
+      touched, readable from the other side of the room.
+    </p>
+  </section>
+
+  <!-- 对应关系 -->
+  <section>
+    <div class="eyebrow">Phone and television</div>
+    <h2>You say it on your phone. It's on the television before you put your coat down.</h2>
+    <p class="lede">
+      You never stand in front of a TV to plan your day — that was never the TV's job.
+      The phone is where you say things, however they come out. The television is where
+      you glance.
+    </p>
+
+    <div class="pair">
+      <div>
+        <div class="screen phone"><img src="shots/pair-phone.png" alt="The phone, mid-conversation"></div>
+        <div class="capt">Your phone — say it however it comes out</div>
+      </div>
+      <div>
+        <div class="screen tv"><img src="shots/pair-tv.png" alt="The same day, on the television"></div>
+        <div class="capt">The same day, on the television</div>
+      </div>
+    </div>
+
+    <p class="same">
+      <b>Same sentence, both screens:</b> “I'm holding the form for today — it's not going
+      anywhere.” One is a conversation. The other is a glance.
+    </p>
+  </section>
+
+  <!-- 它替你做什么 -->
+  <section>
+    <div class="eyebrow">What it actually does</div>
+    <h2>Remembering is the easy half.</h2>
+    <p class="lede">
+      The harder half is that some things never move — not because you don't want to,
+      but because every time you think of one you have to work out where to start,
+      again, from scratch.
+    </p>
+
+    <div class="trace">
+      <div class="turn her">
+        <div class="who">You</div>
+        <p class="said">“I keep putting off the insurance thing.”</p>
+      </div>
+      <div class="turn it">
+        <div class="who">Today</div>
+        <p class="said">“I'm keeping that one for you. Is this for him, or for you too?”</p>
+      </div>
+      <div class="turn it">
+        <div class="who">Then</div>
+        <p class="said">
+          It breaks it into four steps, each small enough to finish in one sitting, each
+          with a time that fits the day — and gives you <b>one of them</b>. Tomorrow's
+          arrives on its own.
+        </p>
+      </div>
+    </div>
+
+    <div class="four">
+      <div class="cap">
+        <h3>It breaks it down</h3>
+        <p>Three to five steps, each finishable in one sitting, each with a moment that
+           actually fits — while she naps, after bedtime.</p>
+      </div>
+      <div class="cap">
+        <h3>It asks exactly one question</h3>
+        <p>One. Two questions is a form, and a form is how a thing gets put off for
+           another month.</p>
+      </div>
+      <div class="cap">
+        <h3>One step a day — and it keeps the place</h3>
+        <p>Never the whole breakdown. You never have to remember where you got to.
+           That is what makes “a little at a time” actually work.</p>
+      </div>
+      <div class="cap">
+        <h3>It protects the things that are yours</h3>
+        <p>The dentist, the check-up — the ones always bumped by somebody else's.
+           When one has waited too long, Today is the one who raises it.</p>
+      </div>
+    </div>
+
+    <div class="pair" style="grid-template-columns:300px 1fr;margin-top:36px">
+      <div>
+        <div class="screen phone"><img src="shots/phone-launch.png" alt="Today's one step"></div>
+      </div>
+      <div>
+        <h3 style="font-size:22px;font-weight:400;letter-spacing:-.01em">
+          “I still have that dentist visit on your list.”
+        </h3>
+        <p style="margin-top:12px;color:var(--soft)">
+          It opens with the thing that has been waiting longest — not with a greeting,
+          and not with a count. Underneath it, one step, with the time it fits into.
+          The other three steps exist. You are not shown them.
+        </p>
+        <p style="color:var(--soft)">
+          No progress bar. No <i>insurance 2/4</i>. The moment you can see a completion
+          rate, this has become one more board you have to maintain.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 不做什么 -->
+  <section>
+    <div class="eyebrow">What it refuses to do</div>
+    <h2>This matters as much as what it does.</h2>
+    <p class="lede">
+      It is written into the agent itself, so that anyone tempted to add a feature later
+      has to read it first.
+    </p>
+    <ul class="nots">
+      <li>No content recommendations. No shopping.</li>
+      <li><b>No progress bars, completion rates, streaks or overdue counts.</b></li>
+      <li><b>No nagging — not one word.</b> “You really ought to get that seen to” is a
+          reproach, and you are already saying it to yourself. It says what it has taken
+          on, never what you ought to do.</li>
+      <li>It never asks why something didn't happen.</li>
+      <li>No full-brightness white panel at night. The background follows the light of
+          the day, because this screen is on all of it.</li>
+      <li><b>A safety note never expires.</b> Everything else in its memory goes stale on
+          its own schedule and gets checked before it is used. Allergies, medication,
+          what the doctor said — those stay. An expired safety reminder is more dangerous
+          than none.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>
+      Today is open source — <a href="https://github.com/haodaz/today">github.com/haodaz/today</a>.
+      Built for the Fire TV track of Build, Ship, Shape: Amazon Developer Hackathon.
+      The tiger was cut out with <a href="https://github.com/haodaz/flatcut">flatcut</a>,
+      released separately.
+    </p>
+    <p style="margin:0;font-size:13px">
+      Everything shown on this page is demo data. Coco is not a real child.
+    </p>
+  </footer>
+</div>
+
+<!-- 登录。只是个门，不收密码，也不验证任何东西。 -->
+<div class="veil" id="veil" onclick="if(event.target===this)closeIn()">
+  <div class="panel">
+    <button class="x" onclick="closeIn()" aria-label="close">×</button>
+    <img src="shots/tiger.png" alt="">
+    <h3>Come in</h3>
+    <p>Today is already keeping your day.</p>
+    <form onsubmit="go(event)">
+      <input id="who" type="text" placeholder="Your name" autocomplete="name">
+      <button class="solid" type="submit">Continue</button>
+    </form>
+    <p class="fine">
+      Demo sign-in — nothing is sent anywhere and no password is asked for.
+    </p>
+  </div>
+</div>
+
+<script>
+  const openIn  = () => { document.getElementById('veil').classList.add('on');
+                          document.getElementById('who').focus(); };
+  const closeIn = () => document.getElementById('veil').classList.remove('on');
+  addEventListener('keydown', e => e.key === 'Escape' && closeIn());
+
+  /* 进去之后去哪儿。
+     本地跑着服务端时就是 /app。这页也能单独丢到静态托管上讲故事——
+     那种情况下 /app 并不存在，按钮会变成一个死键，所以把地址放在这里好改。 */
+  const APP = '/app';
+
+  function go(e) {
+    e.preventDefault();
+    // 名字只是让这道门像一道门。没有账号，没有密码，什么都不往外发。
+    try { localStorage.setItem('today.who', document.getElementById('who').value.trim()); } catch {}
+    if (location.protocol === 'file:') {
+      // 直接双击打开这个文件时没有服务端，别把人送进 404
+      alert('Start the local server first: cd Today && ./start.sh');
+      return;
+    }
+    location.href = APP;
+  }
+</script>
+</body>
+</html>

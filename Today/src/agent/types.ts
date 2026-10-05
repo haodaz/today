@@ -38,6 +38,10 @@ export type Turn = {
   /** 第一人称，它自己说的话。 */
   say: string;
   cards: Card[];
+  /** 她在手机上挑的语言。null = 没挑过，这块屏自己看着办。 */
+  lang?: 'zh' | 'en' | null;
+  /** 今天替她推的那一步。一天一步，剩下的收着不给看。 */
+  step?: {project: string; forHer?: boolean; text: string; note?: string} | null;
 };
 
 /**
@@ -47,7 +51,7 @@ export type Turn = {
  * 比不说更伤人。所以记忆是这个角色的前提，不是功能。
  */
 export type Memory = {
-  /** 她生活里的人。Bits 是谁，奶奶是谁。 */
+  /** 她生活里的人。谁是谁，谁能搭把手。 */
   people: {name: string; who: string}[];
   /** 反复出现的节奏。周三要交表格，周二是垃圾日。 */
   rhythms: string[];
