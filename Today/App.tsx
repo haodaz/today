@@ -18,8 +18,11 @@ import type {Card, Turn} from './src/agent/types';
  * 但二维码必须给公网地址：手机要能在外面用，而且页面内录音需要 HTTPS
  * （iOS Safari 只在安全上下文下给麦克风权限）。
  * 隧道地址每次重启会变，所以不写死，向服务端要。
+ *
+ * 内网地址也不写死了——见 src/api.ts：路由器重启换个号就能自己找回来，
+ * 不用重新打包。
  */
-const API = 'http://192.168.1.243:8910';
+import {apiNow, DEFAULT_API, forgetApi, resolveApi} from './src/api';
 
 /** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
 const QR = 160;
@@ -85,11 +88,20 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [turn, setTurn] = useState<Turn>(EMPTY);
   /** 手机要扫的地址。拿不到公网地址就退回内网，至少在家里能用。 */
-  const [scanUrl, setScanUrl] = useState(API);
+  const [scanUrl, setScanUrl] = useState(DEFAULT_API);
+  /** 服务的内网地址。找到之前先用默认的，找到了就换过来。 */
+  const [api, setApi] = useState(DEFAULT_API);
 
   useEffect(() => {
     const clock = setInterval(() => setNow(new Date()), 10_000);
     return () => clearInterval(clock);
+  }, []);
+
+  // 开机先把服务找出来。默认地址通的话这一步几十毫秒就过了。
+  useEffect(() => {
+    let alive = true;
+    resolveApi().then(url => alive && setApi(url));
+    return () => { alive = false; };
   }, []);
 
   /**
@@ -108,12 +120,16 @@ export default function App() {
   // 换来的是没有连接状态要维护——断网恢复后自己就好了。
   useEffect(() => {
     let alive = true;
+    // 连着取不到就说明地址变了（路由器重启换了号），重新去找一遍。
+    // 一次两次不算——网络抖一下很正常，不该为此扫整个网段。
+    let misses = 0;
     const pull = async () => {
       try {
-        const r = await fetch(`${API}/turn`);
+        const r = await fetch(`${apiNow()}/turn`);
         if (!r.ok) return;
         const next = (await r.json()) as Turn;
         if (!alive) return;
+        misses = 0;
         setTurn(next);
         const body =
           next.say +
@@ -129,10 +145,14 @@ export default function App() {
       } catch {
         // 取不到就维持现状。不在屏幕上报错——
         // 一块陪着你的屏不该因为网络抖动就报警。
+        if (++misses === 4 && alive) {
+          forgetApi();
+          resolveApi().then(url => alive && setApi(url));
+        }
       }
     };
     pull();
-    fetch(`${API}/where`)
+    fetch(`${apiNow()}/where`)
       .then(r => r.json())
       .then(d => d?.url && alive && setScanUrl(d.url))
       .catch(() => {});
@@ -141,7 +161,8 @@ export default function App() {
       alive = false;
       clearInterval(id);
     };
-  }, []);
+    // 跟着 api 走：找到新地址之后立刻从头拉一次，不用再等五秒。
+  }, [api]);
 
   const daypart = daypartOf(now);
   const p = palettes[daypart];
@@ -196,7 +217,7 @@ export default function App() {
       ) as Card[],
     }));
     try {
-      await fetch(`${API}/toggle`, {
+      await fetch(`${apiNow()}/toggle`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({id}),
