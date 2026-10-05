@@ -22,6 +22,7 @@ import {merge as mergeMem, forDisplay, count as memCount, EMPTY as EMPTY_MEM} fr
 import * as Proj from '../src/agent/projects.js';
 import * as Ppl from '../src/agent/people.js';
 import * as Wx from '../src/agent/weather.js';
+import * as Web from '../src/agent/search.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -325,14 +326,40 @@ function openItems() {
 async function ask(braindump, lang, mode) {
   const now = new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {hour12: false});
   const current = currentPlan();
-  const raw = await callJSONIn(
-    buildMessages({
-      braindump, now, lang, mode, current,
-      memory: loadMemory(), projects: loadProjects(), people: loadPeople(),
-      carryOver: carryOver(),
-    }),
-    lang,
-  );
+  const messages = buildMessages({
+    braindump, now, lang, mode, current,
+    memory: loadMemory(), projects: loadProjects(), people: loadPeople(),
+    place: loadPrefs().place, carryOver: carryOver(),
+  });
+  let raw = await callJSONIn(messages, lang);
+
+  /**
+   * 它说要查一下。
+   *
+   * 不走 function calling：那套东西 Nebius / OpenAI / Bedrock 三家格式都不一样，
+   * 兜底链一换供应商就碎。一个 JSON 字段到处都认，和 projects 里的 ask 同一个套路。
+   *
+   * **只给一轮。** 查回来之后不再理会新的 need——
+   * 网页上写一句「你还需要查 X」就能让它一直查下去，那是别人在用她的额度。
+   */
+  if (raw?.need && Web.available()) {
+    const found = await Web.search(String(raw.need), {place: loadPrefs().place});
+    console.log(`  查了「${String(raw.need).slice(0, 40)}」→ ${found.length} 条`);
+    const block = found.length
+      ? Web.render(found, lang === 'zh')
+      : lang === 'zh'
+        ? '没查到。老实告诉她你查不了这个，别编。'
+        : 'Nothing came back. Tell her plainly you could not look it up. Do not invent.';
+    raw = await callJSONIn(
+      [
+        ...messages,
+        {role: 'assistant', content: JSON.stringify(raw)},
+        {role: 'user', content: block},
+      ],
+      lang,
+    );
+    delete raw?.need;   // 一轮就是一轮
+  }
   return {
     ...toTurn(raw, current),
     projects: Array.isArray(raw?.projects) ? raw.projects : [],
