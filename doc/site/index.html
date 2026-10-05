@@ -15,6 +15,9 @@
     --w:1080px;
   }
   *{box-sizing:border-box}
+  /* .ghost 之类有 display:inline-block，优先级盖过浏览器默认的 [hidden]。
+     不写这一句，hidden=true 的元素照样显示——评委就会点到一个死链。 */
+  [hidden]{display:none !important}
   html{-webkit-text-size-adjust:100%}
   body{
     margin:0; color:var(--ink);
@@ -174,6 +177,7 @@
   <div class="wrap bar">
     <div class="mark"><img src="shots/tiger.png" alt=""> Today</div>
     <span class="grow"></span>
+    <a class="ghost" id="tvTop" href="/tv" hidden>Big screen</a>
     <a class="ghost" href="https://github.com/haodaz/today">Source</a>
     <button class="ghost" onclick="openIn()">Sign in</button>
   </div>
@@ -232,6 +236,25 @@
       Closer to the board in a hotel lobby than to an app: always on, never asking to be
       touched, readable from the other side of the room.
     </p>
+
+    <!-- 评委大概率没有 Fire TV。这个链接只在服务跑着的时候是活的，
+         所以先探一下再决定显示哪一个——给评委一个死链，比没有链接更糟。 -->
+    <div id="tvLive" hidden style="margin-top:28px">
+      <a class="solid" href="/tv">Open the big screen →</a>
+      <p style="margin-top:12px;color:var(--faint);font-size:14.5px">
+        The same screen the television shows, in your browser. Same data, same layout —
+        arrow keys to move, Enter to press into something.
+      </p>
+    </div>
+    <div id="tvDead" hidden style="margin-top:28px">
+      <p style="color:var(--soft)">
+        <b>No Fire TV to hand?</b> The big screen also runs in a browser at
+        <code>/tv</code> — the same screen, the same data, nothing to install.
+        It comes up with the rest of the project
+        (<code>cd Today &amp;&amp; ./start.sh</code>), because the server that holds
+        her day runs on her own machine and the model key never leaves it.
+      </p>
+    </div>
   </section>
 
   <!-- 对应关系 -->
@@ -424,6 +447,18 @@
      本地跑着服务端时就是 /app。这页也能单独丢到静态托管上讲故事——
      那种情况下 /app 并不存在，按钮会变成一个死键，所以把地址放在这里好改。 */
   const APP = '/app';
+
+  /* 服务在不在。在就把「打开大屏」亮出来，不在就说清楚它怎么跑起来——
+     评委点到一个死链，比压根没有这个链接伤得多。 */
+  (async () => {
+    let live = false;
+    try {
+      const r = await fetch('/turn', {signal: AbortSignal.timeout(2500)});
+      live = r.ok;
+    } catch {}
+    document.getElementById(live ? 'tvLive' : 'tvDead').hidden = false;
+    if (live) document.getElementById('tvTop').hidden = false;
+  })();
 
   function go(e) {
     e.preventDefault();

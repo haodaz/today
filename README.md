@@ -85,6 +85,21 @@ Today is the one that raises it. Not to chase her. To say it hasn't forgotten.
 And no progress bar. No *insurance 2/4*. The moment she can see a completion
 rate, this has become one more board she has to maintain.
 
+## No Fire TV to hand?
+
+The big screen also runs in a browser, at `/tv` — the same layout, the same data,
+driven by the same endpoint the Fire TV app polls. Arrow keys to move, Enter to
+press into something, Esc to come back.
+
+It is not a mock-up of the television screen; it is the television screen, reading
+from the same server. Useful if you want to see what this looks like without
+side-loading an APK, and useful to her when the one in the living room isn't the
+screen she has in front of her.
+
+```bash
+cd Today && ./start.sh      # then open /tv on anything with a browser
+```
+
 ## Why not just talk to the remote
 
 Because you can't. We checked, and the answer is final:
