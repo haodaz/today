@@ -239,10 +239,28 @@ function currentPlan() {
 }
 
 /** 向一家供应商要一次 JSON。 */
-async function callOne(name, messages) {
+/**
+ * 采样怎么设。
+ *
+ * 温度本来就压到 0.4 了，但 **top_p 一直没设**，默认 1.0——
+ * 温度只是把分布压扁，top_p 才决定还从多长的尾巴里取。尾巴全开，
+ * 就会偶尔蹦出一句「我挑了几个」然后什么都没列。
+ *
+ * 所以按活儿分三档：
+ *   talk  她看见的那段话。要稳，但不能平——这个产品的温度在文字里。
+ *   open  开场白。一天一句，天天一样会像个报时器，留一点余地。
+ *   pick  只负责把查回来的东西填进表。这是抽取，不是写作，越死越好。
+ */
+const DIAL = {
+  talk: {temperature: 0.4, top_p: 0.88},
+  open: {temperature: 0.7, top_p: 0.95},
+  pick: {temperature: 0.2, top_p: 0.6},
+};
+
+async function callOne(name, messages, dial = DIAL.talk) {
   const p = PROVIDERS[name];
   const model = name === CHAIN[0] ? MODEL : p.model;
-  if (p.bedrock) return converseJSON(messages, {model});
+  if (p.bedrock) return converseJSON(messages, {model, ...dial});
 
   const apiKey = process.env[p.key];
   if (!apiKey) throw new Error(`缺少 ${p.key}`);
@@ -252,8 +270,8 @@ async function callOne(name, messages) {
     body: JSON.stringify({
       model,
       messages,
-      // 新一代推理模型只接受默认 temperature
-      ...(/^(gpt-[56]|o[0-9])/.test(model) ? {} : {temperature: 0.4}),
+      // 新一代推理模型只接受默认采样参数，给了会报错
+      ...(/^(gpt-[56]|o[0-9])/.test(model) ? {} : dial),
       response_format: {type: 'json_object'},
     }),
   });
@@ -276,8 +294,8 @@ const hasCJK = v =>
  *
  * 只在英文时多花这一次。中文是她平时用的，不该为了 demo 慢一倍。
  */
-async function callJSONIn(messages, lang) {
-  const r = await callJSON(messages);
+async function callJSONIn(messages, lang, dial) {
+  const r = await callJSON(messages, dial);
   if (lang !== 'en' || !hasCJK(r)) return r;
   console.warn('  要英文却回了中文，重来一次');
   try {
@@ -302,11 +320,11 @@ async function callJSONIn(messages, lang) {
   }
 }
 
-async function callJSON(messages) {
+async function callJSON(messages, dial) {
   let last;
   for (const name of CHAIN) {
     try {
-      return await callOne(name, messages);
+      return await callOne(name, messages, dial);
     } catch (e) {
       last = e;
       if (name !== CHAIN[CHAIN.length - 1]) {
@@ -359,6 +377,45 @@ async function ask(braindump, lang, mode) {
       lang,
     );
     delete raw?.need;   // 一轮就是一轮
+
+    /**
+     * 查过了就必须有那张表。
+     *
+     * 模型把判断写得很好的时候，常常就把 guide 字段忘了——一段漂亮的话，
+     * 没有「几点、多少钱」。而她真要用的恰恰是后者。
+     * 提示词写得再清楚也只是提高概率，所以这里补一刀：只问那张表，别的不要。
+     * 只在真查过、而且它确实没给的时候才多这一次。
+     */
+    if (found.length && !raw?.guide?.options?.length) {
+      const title =
+        raw?.guide?.for ||
+        raw?.projects?.find(p => p.title)?.title ||
+        (lang === 'zh' ? '这件事' : 'this');
+      try {
+        const only = await callJSONIn(
+          [
+            ...messages,
+            {role: 'assistant', content: JSON.stringify(raw)},
+            {role: 'user', content:
+              block + '\n\n' + (lang === 'zh'
+                ? `只输出这一个 JSON，别的字段一个都不要：\n` +
+                  `{"guide":{"for":"${title}","options":[{"name":"…","facts":[{"k":"时间","v":"短"},` +
+                  `{"k":"价位","v":"短"}],"note":"一句","source":"域名"}]}}\n` +
+                  `值最多五六个词。不知道的那一项不要列，不要编。最多三个方案。`
+                : `Output only this one JSON object and no other fields:\n` +
+                  `{"guide":{"for":"${title}","options":[{"name":"…","facts":[{"k":"When","v":"short"},` +
+                  `{"k":"Cost","v":"short"}],"note":"one line","source":"domain"}]}}\n` +
+                  `Values are five or six words at most. Leave out what you don't know; ` +
+                  `never invent. Three options at most.`)},
+          ],
+          lang,
+          DIAL.pick,
+        );
+        if (only?.guide?.options?.length) raw.guide = only.guide;
+      } catch {
+        // 补不上就算了：那段话本身还在，不该因为少一张表就整轮失败
+      }
+    }
   }
   return {
     ...toTurn(raw, current),
@@ -502,6 +559,7 @@ async function greet(lang) {
       open, left: open.length, step, watch, weather: await weather(),
     }),
     lang,
+    DIAL.open,
   );
   let say = typeof r?.say === 'string' ? r.say.trim() : '';
   // 模型偶尔不守长度。这句在屏幕上是最大的一行，太长会吃掉半屏，
@@ -748,9 +806,14 @@ createServer(async (req, res) => {
     // 但电视上只有这一栏能按进去——有内容的东西够不着，等于没有。
     // 所以把项目并进来，有指南/有拆解的排前面。
     const laterCard = cards.find(c => c.type === 'later');
-    const seen = new Set((laterCard?.items ?? []).map(t => String(t).trim()));
+    // 去重要宽一点。模型每轮的措辞不一样——「Insurance for Coco」和
+    // 「insurance for Coco」、「See the dentist」和「her dentist」会并排站着，
+    // 镜头里就是一团脏。去掉标点大小写再比，互相包含的也算同一件。
+    const key = t => String(t).toLowerCase().replace(/[\s'’·,.，。、:：-]/g, '');
+    const seen = (laterCard?.items ?? []).map(key).filter(Boolean);
+    const dup = t => seen.some(k => k === key(t) || k.includes(key(t)) || key(t).includes(k));
     const extra = projects
-      .filter(p => !seen.has(p.title.trim()))
+      .filter(p => !dup(p.title))
       .sort((a, b) => Number(!!b.guide) - Number(!!a.guide))
       .map(p => p.title);
     if (extra.length) {
