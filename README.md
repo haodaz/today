@@ -85,6 +85,26 @@ Today is the one that raises it. Not to chase her. To say it hasn't forgotten.
 And no progress bar. No *insurance 2/4*. The moment she can see a completion
 rate, this has become one more board she has to maintain.
 
+## Have a Fire TV? Side-load it
+
+A signed release APK is attached to the [latest
+release](https://github.com/haodaz/today/releases/latest).
+
+On the Fire TV: **Settings → My Fire TV → Developer options**, turn on *ADB
+debugging*, and note the IP under **About → Network**. Then, from a machine on
+the same Wi-Fi:
+
+```bash
+adb connect <fire-tv-ip>:5555
+adb install -r today-v0.1.0.apk
+adb shell am start -n com.today.tv/.MainActivity
+```
+
+It needs the companion server running somewhere on the same network — `cd Today
+&& ./start.sh`. The app finds it by itself: it tries the address it was built
+with, then scans the subnet, and re-discovers if the address changes. There is no
+pairing step and no account.
+
 ## No Fire TV to hand?
 
 The big screen also runs in a browser, at `/tv` — the same layout, the same data,
