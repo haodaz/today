@@ -866,25 +866,42 @@ createServer(async (req, res) => {
   }
 
   /** 今天之前那几段对话的目录，只给首句和时间——列表不需要全文。 */
+  /**
+   * 聊过的。
+   *
+   * 原来只读当天那一个文件，于是过了半夜，前一天说过的话就彻底看不见了。
+   * 记忆和在推的事都跨天，唯独对话到零点归零——对一块一直在墙上的屏来说
+   * 这才是怪事。现在往回翻最近几天。
+   */
   if (url.pathname === '/threads') {
-    const d = loadDay();
-    return json(res, 200, {
-      threads: (d?.threads ?? []).map((t, i) => ({
-        i,
-        at: t.at,
-        first: t.messages.find(m => m.who === 'her')?.text
-            ?? t.messages[0]?.text ?? '',
-        n: t.messages.length,
-      })).reverse(),
-    });
+    const days = 14;
+    const out = [];
+    for (let i = 0; i < days; i++) {
+      const k = dayKey(new Date(Date.now() - i * 86400000));
+      const d = loadDay(k);
+      for (const [j, t] of (d?.threads ?? []).entries()) {
+        out.push({
+          day: k,
+          i: j,
+          at: t.at,
+          first: t.messages.find(m => m.who === 'her')?.text
+              ?? t.messages[0]?.text ?? '',
+          n: t.messages.length,
+        });
+      }
+    }
+    // 新的在前。同一天里也是后说的在前。
+    out.sort((a, b) => String(b.at ?? b.day).localeCompare(String(a.at ?? a.day)));
+    return json(res, 200, {threads: out.slice(0, 40)});
   }
 
   /** 取某一段历史对话的全文。 */
   if (url.pathname === '/thread') {
     const i = Number(url.searchParams.get('i'));
-    const t = loadDay()?.threads?.[i];
+    const k = url.searchParams.get('day') || dayKey();
+    const t = loadDay(k)?.threads?.[i];
     if (!t) return json(res, 404, {error: 'no such thread'});
-    return json(res, 200, {messages: t.messages});
+    return json(res, 200, {messages: t.messages, day: k});
   }
 
   /** 她在推着的事。界面上看得见「下一步」，但看不见进度条。 */
@@ -939,7 +956,11 @@ createServer(async (req, res) => {
   }
   if (url.pathname === '/people') {
     const zh = langOf(url.searchParams.get('lang')) === 'zh';
-    return json(res, 200, {people: Ppl.forDisplay(loadPeople(), zh)});
+    return json(res, 200, {
+      people: Ppl.forDisplay(loadPeople(), zh),
+      // 角色表由这边给，省得两处各写一份然后慢慢走散
+      roles: Ppl.ROLES.map(r => ({key: r.key, icon: r.icon, label: zh ? r.zh : r.en})),
+    });
   }
 
   /**

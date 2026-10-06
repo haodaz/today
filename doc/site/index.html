@@ -19,11 +19,15 @@
      不写这一句，hidden=true 的元素照样显示——评委就会点到一个死链。 */
   [hidden]{display:none !important}
   html{-webkit-text-size-adjust:100%}
+  /* 手机上整页会横着漂一截：固定背景在 iOS Safari 上本来就不稳，
+     加上老虎那张图在窄屏按百分比算宽度会顶出去。两样一起钉住。 */
+  html,body{max-width:100%;overflow-x:hidden}
+  img{max-width:100%;height:auto}
   body{
     margin:0; color:var(--ink);
     font:400 17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     background:linear-gradient(165deg,var(--sky-a) 0%,var(--sky-b) 52%,var(--sky-c) 100%);
-    background-attachment:fixed;
+    /* iOS Safari 上 fixed 背景会跟着滚动漂移，不如让它跟着页面走 */
     -webkit-font-smoothing:antialiased;
   }
   .wrap{max-width:var(--w);margin:0 auto;padding:0 24px}
@@ -81,6 +85,7 @@
 
   /* ── 对应关系 ─────────────────────────── */
   .pair{display:grid;grid-template-columns:300px 1fr;gap:34px;align-items:center;margin-top:34px}
+  .pair-wide{margin-top:36px}
   .screen{border-radius:22px;overflow:hidden;border:1px solid var(--line);
     box-shadow:0 24px 60px rgba(28,26,42,.16);background:#fff}
   .screen img{display:block;width:100%}
@@ -173,13 +178,12 @@
 </head>
 <body>
 
+<!-- 顶上只留名字。
+     三个按钮在手机上挤到换行，而且其中两个本来就多余：点 Open Today
+     就是 sign in，大屏那个链接在下面「为什么是电视」那一节有它自己的位置。 -->
 <header>
   <div class="wrap bar">
     <div class="mark"><img src="shots/tiger.png" alt=""> Today</div>
-    <span class="grow"></span>
-    <a class="ghost" id="tvTop" href="/tv" hidden>Big screen</a>
-    <a class="ghost" href="https://github.com/haodaz/today">Source</a>
-    <button class="ghost" onclick="openIn()">Sign in</button>
   </div>
 </header>
 
@@ -201,8 +205,11 @@
       </div>
       <div class="cta">
         <button class="solid" onclick="openIn()">Open Today</button>
-        <small>Built for the Fire TV track · Build, Ship, Shape</small>
+        <a class="ghost" href="https://github.com/haodaz/today">Source</a>
       </div>
+      <p style="margin:14px 0 0;color:var(--faint);font-size:13.5px">
+        Built for the Fire TV track · Build, Ship, Shape
+      </p>
     </div>
     <img class="tiger" src="shots/tiger.png" alt="Today, a small tiger">
   </div>
@@ -336,7 +343,10 @@
       </div>
     </div>
 
-    <div class="pair" style="grid-template-columns:300px 1fr;margin-top:36px">
+    <!-- 这儿原来写的是内联的 grid-template-columns，而内联样式压过媒体查询，
+         所以窄屏上它还是两栏，右边的文字被挤成一条 90px 宽的竖带。
+         响应式的东西不能写内联。 -->
+    <div class="pair pair-wide">
       <div>
         <div class="screen phone"><img src="shots/phone-launch.png" alt="Today's one step"></div>
       </div>
@@ -457,7 +467,6 @@
       live = r.ok;
     } catch {}
     document.getElementById(live ? 'tvLive' : 'tvDead').hidden = false;
-    if (live) document.getElementById('tvTop').hidden = false;
   })();
 
   function go(e) {

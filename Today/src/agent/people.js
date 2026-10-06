@@ -26,6 +26,7 @@
  *   name: string,
  *   en?: string,
  *   rel?: string,
+ *   role?: string,
  *   born?: string,
  *   approx?: boolean,
  *   they?: 'he' | 'she' | 'they',
@@ -34,6 +35,29 @@
  */
 
 export const EMPTY = {people: []};
+
+/**
+ * 家里有谁，由她说了算。
+ *
+ * 不做「母亲/父亲」这种单选字段——两个妈妈、两个爸爸的家庭会被那种字段
+ * 直接判定为填错了。角色可以重复，想加几个加几个。
+ *
+ * 猫和狗也在里面。只能填「家长 + 孩子」的产品是在替她定义什么算家庭；
+ * 能把 Nana 加进去，这块屏才是她家的。
+ */
+export const ROLES = [
+  {key: 'mum',  icon: '\u{1F469}', zh: '妈妈', en: 'Mum'},
+  {key: 'dad',  icon: '\u{1F468}', zh: '爸爸', en: 'Dad'},
+  {key: 'baby', icon: '\u{1F476}', zh: '宝宝', en: 'Baby'},
+  {key: 'kid',  icon: '\u{1F9D2}', zh: '孩子', en: 'Child'},
+  {key: 'gran', icon: '\u{1F475}', zh: '老人', en: 'Grandparent'},
+  {key: 'cat',  icon: '\u{1F431}', zh: '猫',   en: 'Cat'},
+  {key: 'dog',  icon: '\u{1F436}', zh: '狗',   en: 'Dog'},
+  {key: 'me',   icon: '\u2764\uFE0F', zh: '我', en: 'Me'},
+];
+
+export const iconOf = role =>
+  ROLES.find(r => r.key === role)?.icon ?? '\u{1F9D1}';
 
 const MONTH = 'months';
 
@@ -135,6 +159,7 @@ export function apply(cur, ops, now = new Date()) {
       name: clean(op.name),
       en: clean(op.en),
       rel: clean(op.rel),
+      role: ROLES.some(r => r.key === op.role) ? op.role : undefined,
       born: born ?? guess ?? undefined,
       // 只给了年份就一定是估的——「2023」本身就说不出月份。
       // 不这么判的话，界面把推算出来的年份显示在生日栏里，她一按存下，
@@ -167,7 +192,9 @@ export function render(store, zh, now = new Date()) {
   if (!list.length) return '';
   const lines = list.map(p => {
     const bits = [];
-    if (p.rel) bits.push(p.rel);
+    const r = ROLES.find(x => x.key === p.role);
+    if (r) bits.push(zh ? r.zh : r.en);
+    if (p.rel && p.rel !== (zh ? r?.zh : r?.en)) bits.push(p.rel);
     const age = ageText(p.born, zh, now);
     if (age) bits.push(p.approx ? (zh ? `${age}左右` : `about ${age}`) : age);
     if (p.they) bits.push(zh ? `称 ${p.they}` : `goes by ${p.they}`);
@@ -196,6 +223,7 @@ export function forDisplay(store, zh = true, now = new Date()) {
     return {
       ...p,
       age: ageText(p.born, zh, now),
+      icon: iconOf(p.role),
       // 界面要分开处理：生日是她填的，岁数是算出来的。
       // 估出来的年份不能回填到生日栏里让她去确认。
       ageNum: mo == null ? null : Math.floor(mo / 12),
