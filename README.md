@@ -67,11 +67,11 @@ She says, one evening: *"I keep putting off the insurance thing."*
 
 Today does not add **sort out insurance** to a list. It takes it:
 
-**It asks one question.** Exactly one — *"Is this for him, or for you too?"* Two
+**It asks one question.** Exactly one — *"Is it just the baby, or the older one too?"* Two
 questions is a form, and a form is how a thing gets put off for another month.
 
 **It breaks it down** once she answers. Four steps, each small enough to finish
-in one sitting, each with a time that fits the day: *while he naps*, *after
+in one sitting, each with a time that fits the day: *during the morning nap*, *after
 bedtime*.
 
 **It gives her one step a day.** Never the whole breakdown. Tomorrow's step

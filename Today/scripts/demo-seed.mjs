@@ -5,8 +5,12 @@
  * 跟有没有拍到房间是两回事。所以公开素材一律跑在这份虚构的上，
  * 她日常那份一个字节都不碰。
  *
- *   TODAY_DATA=.data.demo node scripts/demo-seed.mjs
- *   TODAY_DATA=.data.demo node server/index.mjs
+ *   TODAY_DATA=.data.demo  node scripts/demo-seed.mjs
+ *   TODAY_DATA=.data.demo2 node scripts/demo-seed.mjs --other
+ *   TODAY_DATA=.data.demo  node server/index.mjs
+ *
+ * --other 是第六幕对比用的第二个家庭：同一个城市、同一批搜索结果，
+ * 只有孩子的年龄不同。两家不在同一个城市，那一幕的前提就不成立了。
  *
  * 里面的人和事全是编的。叮嘱那条特意避开了任何真实孩子身上的情况——
  * 从演示数据反推不出任何一个真人。
@@ -36,7 +40,39 @@ const put = (name, v) => {
   console.log('  ', name);
 };
 
-put('prefs.json', {lang: 'en'});
+const OTHER = process.argv.includes('--other');
+
+put('prefs.json', {lang: 'en', place: {name: 'Brooklyn, US', lat: 40.6501, lon: -73.9496}});
+
+if (OTHER) {
+  // 第二个家庭。同城、同一批搜索结果，孩子的年龄完全不同——
+  // 第六幕要证明的就是「同样的结果，不同的家，答案相反」。
+  put('people.json', {
+    people: [
+      {id: 'o-mum',   name: 'Dana',  role: 'mum', rel: 'mum', they: 'she'},
+      {id: 'o-jonah', name: 'Jonah', role: 'kid', rel: 'son', they: 'he',
+       born: '2016-05', approx: false, note: 'fifth grade, soccer on Saturdays'},
+      {id: 'o-ada',   name: 'Ada',   role: 'kid', rel: 'daughter', they: 'she',
+       born: '2014-02', approx: false, note: 'seventh grade'},
+    ],
+  });
+  put('memory.json', {
+    facts: {
+      '一天的样子': [
+        {text: 'Jonah has soccer Saturday mornings; both out the door by 7:45', at: iso(20)},
+      ],
+      '她自己': [{text: 'back at work three days a week', at: iso(30)}],
+      '要紧的叮嘱': [
+        {text: 'Ada needs her glasses for anything she has to read', at: iso(60)},
+      ],
+    },
+    updatedAt: iso(0),
+  });
+  put('projects.json', {items: []});
+  console.log('\n第二个家庭写好了（第六幕对比用）：', DATA);
+  process.exit(0);
+}
+
 
 // 一个孩子就够。两个会把每块屏都填满，看不出结构。
 put('people.json', {

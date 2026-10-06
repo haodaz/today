@@ -268,6 +268,8 @@ need 只用来查**事实**：地方、时间、价格、怎么办理。
 
 所以：
 - 内容放 **guide**，每个方案几条 **key: value**。
+  **k 只写一两个词**（时间、价位、适合、在哪、怎么去）——
+  写成「周六营业时间」这种，电视上会被截成「周六营业…」。
   时间、价位、适合几岁、怎么去——**值最多五六个词**。
   「10:00–16:00」「免费」「4 岁刚好」是值；
   「适合让她跑一跑而你能坐下来喝杯咖啡」不是值，那是一句话，放 note 里。
@@ -320,6 +322,10 @@ need 只用来查**事实**：地方、时间、价格、怎么办理。
   你要说的是你接了什么、今天这一步在哪儿，不是她该做什么。
 
 label 要短，电视上一行要放得下，中文不超过 14 个字。
+
+**上面「今天已经排好的」里，开头那种方括号记号是我标给你看的状态，
+不是标题的一部分。** 重写某一条时只写标题本身——
+见过它把「open」抄进标题，电视上就成了「open 签表格」。
 
 不管记忆里的内容是什么语言，你一律用中文回答。
 
@@ -536,6 +542,8 @@ What to do:
 
    So:
    - The content goes in **guide**, a few **key: value** facts per option.
+     **The key is one or two words** (When, Cost, Suits, Where, Travel).
+     Write "Saturday opening hours" and the television cuts it to "Saturday…".
      Time, price, what age it suits, how to get there — **a value is five or six
      words at most**. "10:00–16:00", "free", "suits four" are values.
      "Good for letting her run about while you sit down with a coffee" is not a
@@ -596,6 +604,11 @@ What to do:
 
 Keep labels short enough for one line on a TV.
 
+**In "Already planned today" above, the bracket marks at the start of each line
+are status I put there for you — they are not part of the label.** When you restate an item, write the
+label only. It has copied "open" into a label before, and the television then
+read "open Sign the form".
+
 Always reply in English, whatever language the remembered notes are in.
 
 Output JSON only, nothing else:
@@ -609,8 +622,12 @@ ${SHAPE}
  */
 function currentBlock(cur, zh) {
   if (!cur?.focus?.length) return '';
+  // 状态用符号，不用词。
+  // 原来写的是 `[1] open 标题`——中间没有分隔，模型把「open」当成标题的
+  // 一部分抄了回来，电视上就出现了「open Sign Stelle's form」。
+  // 符号不会被误当成文字。
   const lines = cur.focus.map(
-    t => `  [${t.id}] ${t.done ? (zh ? '已完成' : 'done') : (zh ? '未完成' : 'open')} ` +
+    t => `  [${t.id}] ${t.done ? '[x]' : '[ ]'} ` +
          `${t.label}${t.note ? `（${t.note}）` : ''}${t.forHer ? (zh ? ' ←给她自己的' : ' ←hers') : ''}`,
   );
   const later = cur.later?.length

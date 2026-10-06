@@ -1276,12 +1276,36 @@ function drawChat(box) {
         const ch = el('chips');
         // 模型给的「以后」不一定把在推的事都写上，但有指南的那件事必须够得着——
         // 查回来的东西点不开，等于没查。所以缺的补进来，有内容的排前面。
-        const named = new Set(later.items.map(t => tidy(t)));
+        //
+        // 去重要宽：模型每轮措辞都不一样（「Add Coco to the health plan」和
+        // 「Insurance for Coco」、「See the dentist」和「Her own dentist」），
+        // 精确匹配一个都拦不住，卡片上就并排站着三组同义的。
+        // 已经在今天任务里的也别再出现一次。
+        // 子串匹配不够：「Sign Stelle's conference form」和
+        // 「Sign and return Stelle's conference form」中间插了两个词，
+        // 谁也不包含谁，于是并排站着。按词重合算——短的那组里
+        // 七成以上的词出现在另一组，就是同一件事。
+        const words = t => String(t || '').toLowerCase()
+          .split(/[^a-z\u4e00-\u9fa5]+/).filter(w => w.length > 2);
+        const same = (a, b) => {
+          const A = words(a), B = words(b);
+          if (!A.length || !B.length) return false;
+          const [s1, s2] = A.length <= B.length ? [A, B] : [B, A];
+          const hit = s1.filter(w => s2.includes(w)).length;
+          return hit / s1.length >= 0.7;
+        };
+        const seen = [];
+        const dup = t => !tidy(t) || seen.some(x => x === tidy(t) || same(x, t));
+        const take = t => { seen.push(t); return t; };
+        for (const i of tasks?.items ?? []) seen.push(i.label);
+
         const missing = projCache
-          .filter(q => hasDepth(q) && !named.has(tidy(q.title)))
+          .filter(q => hasDepth(q) && !dup(q.title))
           .sort((a, c) => Number(!!c.guide) - Number(!!a.guide))
-          .map(q => q.title);
-        for (const s of [...missing, ...later.items]) {
+          .map(q => take(q.title));
+        const rest = later.items.filter(l => !dup(l)).map(take);
+        // 四个封顶。再多就不是「先收着的」，是又一张清单。
+        for (const s of [...missing, ...rest].slice(0, 4)) {
           const proj = projFor(s);
           const can = hasDepth(proj);
           const p = el('chip' + (can ? ' can' : ''), 'span');

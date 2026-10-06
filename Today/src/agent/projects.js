@@ -132,7 +132,7 @@ function cleanGuide(g, nowIso) {
       name: String(o?.name ?? '').trim().slice(0, 60),
       facts: (o?.facts ?? [])
         .map(f => ({
-          k: clip(f?.k, 10),
+          k: clip(f?.k, 14),
           v: clip(f?.v, 46),
         }))
         .filter(f => f.k && f.v)

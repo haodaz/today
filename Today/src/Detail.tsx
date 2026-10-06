@@ -151,13 +151,14 @@ export function Detail({payload, daypart, lang, onClose}: Props) {
                       s.opt,
                       // 多个方案才给框。三米外，三段一模一样的字是一堵墙，
                       // 眼睛没有落点；一个方案的时候加框反而多余。
+                      // 分隔不能靠填充色——清晨那档 surface 和背景几乎同色，
+                      // 卡片就消失了。靠左边一道竖线：任何时段都看得见，
+                      // 而且比整圈描边省横向空间。
                       needsCards(proj.guide?.options) && {
-                        backgroundColor: p.surface,
-                        borderColor: p.border,
-                        borderWidth: 1,
-                        borderRadius: 14,
-                        paddingHorizontal: space.md,
-                        paddingVertical: space.sm,
+                        borderLeftWidth: 2,
+                        borderLeftColor: p.accent,
+                        paddingLeft: space.md,
+                        marginBottom: space.md,
                       },
                     ]}>
                     <Text style={[s.optName, {color: p.text}]} numberOfLines={1}>
