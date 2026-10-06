@@ -21,3 +21,6 @@ private/
 
 # 本地预览草稿
 .preview/
+
+# 旁白音频是生成物，几 MB，重跑 tts.mjs 就有
+doc/video/tts/
