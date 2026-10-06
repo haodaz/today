@@ -30,7 +30,7 @@ TODAY_DATA=.data.demo node scripts/demo-seed.mjs
 ls -l .data.demo/*.json          # four files. If any is missing, stop and fix it.
 ./start.sh                        # server + HTTPS tunnel, prints the URL
 curl -s -X POST http://127.0.0.1:8910/place \
-  -H 'Content-Type: application/json' -d '{"name":"Leeds"}'
+  -H 'Content-Type: application/json' -d '{"name":"Brooklyn"}'
 ```
 
 Emulator, in another terminal:
@@ -52,14 +52,19 @@ runs on the fictional household in `scripts/demo-seed.mjs`:
 | | |
 |---|---|
 | 👩 Elodie | the one it talks to |
-| 👨 Claude | away Tuesday to Thursday most weeks |
+| 👨 Claude | travels Tuesday to Thursday most weeks |
 | 👶 Coco | eight months |
-| 🧒 Stelle | fifteen, year 11, GCSEs this summer |
+| 🧒 Stelle | fifteen, tenth grade |
 | 🐶 Nana | five |
 
-The spread is the point. An eight-month-old and a fifteen-year-old in one house is
-a very specific kind of busy, and it makes the two-household comparison in beat 6
-land harder than two children the same age would.
+One household, Brooklyn. The fifteen-year gap is the point: Coco came late, and an
+eight-month-old alongside a tenth-grader is a very specific kind of busy. It also
+makes the two-household comparison in beat 6 land harder than two children the
+same age would.
+
+Set the location to **Brooklyn** before you record — the lookups and the weather
+both read from it, and a demo set in the wrong country reads as not written for
+the person watching.
 
 ---
 
@@ -88,7 +93,7 @@ Stillness is the shot. It is a screen you glance at, not one you operate.
 
 | | |
 |---|---|
-| **Type** | *Coco barely slept and Stelle needs her form signed for Thursday* |
+| **Type** | *Coco barely slept and Stelle needs her conference form signed for Thursday* |
 | **Screen** | Split: phone left, TV right. Let the TV catch up by itself. Don't cut — the five-second poll **is** the shot. |
 | **Say** | "She says it into her phone, however it comes out. By the time she's put her coat down, the television already shows today." |
 | | "She never stands in front of a TV to plan her day. That was never the TV's job." |

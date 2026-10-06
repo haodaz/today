@@ -43,13 +43,13 @@ put('people.json', {
   people: [
     {id: 'demo-elodie', name: 'Elodie', role: 'mum',  rel: 'mum',      they: 'she'},
     {id: 'demo-claude', name: 'Claude', role: 'dad',  rel: 'dad',      they: 'he',
-     note: 'away Tuesday to Thursday most weeks'},
+     note: 'travels Tuesday to Thursday most weeks'},
     // 生日写到日，年龄让它自己算。note 里绝不写岁数——
     // 写了就会和算出来的打架，而且明年还是错的。
     {id: 'demo-coco',   name: 'Coco',   role: 'baby', rel: 'daughter', they: 'she',
      born: '2026-02-01', approx: false},
     {id: 'demo-stelle', name: 'Stelle', role: 'kid',  rel: 'daughter', they: 'she',
-     born: '2011-03', approx: false, note: 'year 11, GCSEs this summer'},
+     born: '2011-03', approx: false, note: 'tenth grade, PSAT in the spring'},
     {id: 'demo-nana',   name: 'Nana',   role: 'dog',  rel: 'dog',
      born: '2021-05', approx: false},
   ],
@@ -58,11 +58,11 @@ put('people.json', {
 put('memory.json', {
   facts: {
     '一天的样子': [
-      {text: 'Stelle leaves at 7:40; Coco naps around 9:30 and again at 1:30', at: iso(24)},
-      {text: 'Claude is away Tuesday to Thursday most weeks', at: iso(31)},
+      {text: 'Stelle catches the 7:20 bus; Coco naps around 9:30 and again at 1:30', at: iso(24)},
+      {text: 'Claude travels Tuesday to Thursday most weeks', at: iso(31)},
     ],
     '在办的事': [
-      {text: "Stelle's parents' evening is Thursday", at: iso(4)},
+      {text: "Stelle's parent–teacher conference is Thursday", at: iso(4)},
     ],
     '她自己': [
       {text: "hasn't been out on her own since Coco was born", at: iso(12)},
@@ -83,12 +83,12 @@ put('projects.json', {
     {
       // 拆过了，第一步做完了，今天该端第二步出来
       id: 'demo-ins',
-      title: 'Insurance for Coco',
+      title: 'Add Coco to the health plan',
       forHer: false,
       steps: [
-        {text: "Find Coco's birth certificate and photograph it", note: 'during the morning nap', done: true, at: iso(2)},
-        {text: 'Compare two child health plans, write down the premiums', note: 'once Coco is down', done: false},
-        {text: 'Fill in the application and send it', done: false},
+        {text: "Find Coco's birth certificate and take a photo of it", note: 'during the morning nap', done: true, at: iso(2)},
+        {text: 'Compare two plans — premium, deductible, pediatrician in network', note: 'once Coco is down', done: false},
+        {text: 'Submit the enrollment form', done: false},
       ],
       at: iso(40),
       lastMoved: iso(2),
@@ -99,7 +99,7 @@ put('projects.json', {
       id: 'demo-dentist',
       title: 'See the dentist',
       forHer: true,
-      steps: [{text: 'Ring the surgery and ask for the first free morning', done: false}],
+      steps: [{text: "Call the dentist and take the first morning they've got", done: false}],
       at: iso(23),
       lastMoved: iso(1),
       offers: 3,
@@ -126,18 +126,18 @@ const at = (d, h, m) => {
 const PAST = [
   [1, [
     [9, 20, 'her', 'Coco was up half the night, I am wrecked'],
-    [9, 20, 'today', "Then today stays small. Stelle's parents' evening isn't till Thursday — it can wait."],
+    [9, 20, 'today', "Then today stays small. Stelle's conference isn't until Thursday — it can wait."],
     [14, 5, 'her', 'she went down at one and I actually sat down'],
     [14, 5, 'today', 'Good. I moved the shopping to tomorrow so that hour stays yours.'],
   ]],
   [3, [
     [8, 40, 'her', 'I keep meaning to sort the insurance and never do'],
-    [8, 40, 'today', "I'm holding that one. Is it just for Coco, or for Stelle as well?"],
-    [8, 52, 'her', 'just Coco for now, Stelle is on her dad\'s'],
-    [8, 52, 'today', "Right — Coco's first policy. I've broken it into four, and I'll give you one at a time."],
+    [8, 40, 'today', "I'm holding that one. Is it just Coco, or Stelle too?"],
+    [8, 52, 'her', "just Coco — Stelle's already on it"],
+    [8, 52, 'today', "Got it — Coco only. I've broken it into four, and I'll give you one at a time."],
   ]],
   [6, [
-    [19, 10, 'her', 'my tooth has been going for a week and I keep not ringing'],
+    [19, 10, 'her', "my tooth's been bothering me for a week and I keep not calling"],
     [19, 10, 'today', "I've got it. Not today — but I'm not letting it slide either."],
   ]],
   [9, [
