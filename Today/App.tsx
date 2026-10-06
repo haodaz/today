@@ -224,6 +224,16 @@ export default function App() {
       d.notes?.length
     );
   const left = items.filter(i => !i.done).length;
+  // 右栏空着时会改摆「还在推着的」，那时候左边别把同样的三行再列一遍。
+  const carrying = items.length === 0 && (turn.projects?.length ?? 0) > 0;
+  const laterShown = (() => {
+    const all = later?.type === 'later' ? later.items : [];
+    if (!carrying) return all;
+    const shown = new Set(
+      (turn.projects ?? []).slice(0, 3).map(q => q.title.trim().toLowerCase()),
+    );
+    return all.filter(l => !shown.has(String(l).trim().toLowerCase()));
+  })();
 
   const toggle = async (id: string) => {
     // 先改本地，让按下去是即时的；再回写
@@ -327,7 +337,7 @@ export default function App() {
             </View>
           ) : null}
 
-          {later?.type === 'later' ? (
+          {later?.type === 'later' && laterShown.length ? (
             <View style={s.laterBlock}>
               <Text style={[s.smallHead, {color: p.textFaint}]}>
                 {x.notToday}
@@ -335,8 +345,10 @@ export default function App() {
               {/* 三条，不是四条——上面那一步要地方，而「今天不做」
                   是这块屏上最不紧要的一块。 */}
               {/* 这几条多半就是在推的大事。它们在这儿看着最不起眼，
-                  但按进去是内容最多的——所以也要能聚焦。 */}
-              {later.items.slice(0, 3).map((l, i) => (
+                  但按进去是内容最多的——所以也要能聚焦。
+                  右栏已经在摆「还在推着的」时，这儿就不要再说一遍——
+                  同一屏上同样三行出现两次，看着像坏了。 */}
+              {laterShown.slice(0, 3).map((l, i) => (
                 <LaterRow
                   key={i}
                   label={l}
@@ -403,9 +415,42 @@ export default function App() {
                 </Text>
               )}
             </>
+          ) : projects.length ? (
+            /* 今天还没理，但手上并不是空的。
+               早上第一眼只给一块二维码，等于把昨天推着的事全藏起来了，
+               而那恰恰是她起床时最该看见的东西。所以先把在推的摆出来，
+               二维码缩到底下——扫码是一次性的动作，不该占着整块屏。 */
+            <>
+              <View style={s.cardHead}>
+                <Text style={[s.section, {color: p.textSoft}]}>{x.carrying}</Text>
+              </View>
+              {projects.slice(0, 3).map((q, i) => (
+                <TaskRow
+                  key={q.id}
+                  label={q.title}
+                  note={q.steps.find(st => !st.done)?.text ?? q.asked ?? undefined}
+                  done={false}
+                  forHer={q.forHer}
+                  daypart={daypart}
+                  autoFocus={i === 0}
+                  onToggle={() => setOpen(detailFor(q.title))}
+                  onFocusIn={() => setFocus(detailFor(q.title))}
+                  hasMore={hasDepth(detailFor(q.title))}
+                  noTick
+                />
+              ))}
+              <View style={s.tuck}>
+                <View style={[s.qrSmall, {backgroundColor: '#FFFFFF'}]}>
+                  <QRCode value={scanUrl} size={76} color="#1C1D1C" backgroundColor="#FFFFFF" />
+                </View>
+                <Text style={[s.smallItem, {color: p.textFaint, flex: 1}]}>
+                  {x.scanHint}
+                </Text>
+              </View>
+            </>
           ) : (
-            // 空的时候不写「暂无数据」。
-            // 一块二维码，扫一下就能说话——
+            // 真的什么都没有的时候才给整块二维码。
+            // 不写「暂无数据」——扫一下就能说话，
             // 没人该在手机上手敲一串 IP 地址，尤其是一个很累的人。
             <View style={s.empty}>
               <View style={[s.qrFrame, {backgroundColor: '#FFFFFF'}]}>
@@ -496,5 +541,9 @@ const s = StyleSheet.create({
   empty: {alignItems: 'center', justifyContent: 'center'},
   // 二维码必须有白底和留白才扫得动，哪怕整页背景是暖色或夜间深色
   qrFrame: {padding: space.md, borderRadius: 20},
+  // 二维码缩到底下：扫码是一次性动作，不该占着整块屏
+  tuck: {flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.md,
+    paddingHorizontal: space.xs},
+  qrSmall: {padding: space.sm, borderRadius: 12},
   scanHint: {fontSize: type.section, marginTop: space.md, textAlign: 'center'},
 });

@@ -17,6 +17,8 @@ type Props = {
   onFocusIn?: () => void;
   /** 按进去真有东西。没有就不画箭头——不许诺一个空屏。 */
   hasMore?: boolean;
+  /** 不画勾选框。在推的事按中间键是进详情，不是打勾，框会骗人。 */
+  noTick?: boolean;
 };
 
 /**
@@ -36,6 +38,7 @@ export function TaskRow({
   onToggle,
   onFocusIn,
   hasMore,
+  noTick,
 }: Props) {
   const p = palettes[daypart];
   const [focused, setFocused] = useState(false);
@@ -103,16 +106,18 @@ export function TaskRow({
           <View style={[s.herEdge, {backgroundColor: p.warm}]} />
         ) : null}
 
-        <View
-          style={[
-            s.box,
-            {
-              borderColor: done ? p.accent : p.border,
-              backgroundColor: done ? p.accent : 'transparent',
-            },
-          ]}>
-          {done ? <Text style={s.tick}>✓</Text> : null}
-        </View>
+        {noTick ? null : (
+          <View
+            style={[
+              s.box,
+              {
+                borderColor: done ? p.accent : p.border,
+                backgroundColor: done ? p.accent : 'transparent',
+              },
+            ]}>
+            {done ? <Text style={s.tick}>✓</Text> : null}
+          </View>
+        )}
 
         <View style={s.textCol}>
           <Text
