@@ -458,9 +458,12 @@ const DICT = {
        statLeft:n=>`今天还剩 ${n} 件`, statDone:'今天的事都做完了',
        statNone:'今天还没有事', statKept:n=>`先收着 ${n} 件`, statMem:n=>`记着 ${n} 条`,
        modes:[
-         {k:'note',  ico:'🏷️', t:'先帮我记着',  s:'NOTE',  ph:'一句话，什么都行'},
-         {k:'',      ico:'🌤️', t:'帮我理今天',  s:'TODAY', ph:'想到什么说什么，不用整理', key:true},
-         {k:'write', ico:'✍️', t:'替我写句话',  s:'WRITE', ph:'要发给谁，说什么意思'},
+         {k:'note',  ico:'🏷️', t:'先帮我记着',  s:'NOTE',  ph:'一句话，什么都行',
+          open:'说吧，我记着，不用你整理。'},
+         {k:'',      ico:'🌤️', t:'帮我理今天',  s:'TODAY', ph:'想到什么说什么，不用整理', key:true,
+          open:'今天手上有什么？想到哪说到哪就行。'},
+         {k:'write', ico:'✍️', t:'替我写句话',  s:'WRITE', ph:'要发给谁，说什么意思',
+          open:'发给谁，你想让对方知道什么？'},
        ],
        copy:'复制', copied:'复制好了',
        noMic:'这个浏览器不支持录音，直接打字吧。',
@@ -480,9 +483,12 @@ const DICT = {
        statLeft:n=>`${n} left today`, statDone:'All done today',
        statNone:'Nothing yet today', statKept:n=>`${n} held`, statMem:n=>`${n} remembered`,
        modes:[
-         {k:'note',  ico:'🏷️', t:'Just hold this', s:'NOTE',  ph:'One line, anything'},
-         {k:'',      ico:'🌤️', t:'Sort out today', s:'TODAY', ph:'Say it however it comes', key:true},
-         {k:'write', ico:'✍️', t:'Write it for me', s:'WRITE', ph:'Who it goes to, what you mean'},
+         {k:'note',  ico:'🏷️', t:'Just hold this', s:'NOTE',  ph:'One line, anything',
+          open:"Go on — I'll keep it. You don't have to tidy it up."},
+         {k:'',      ico:'🌤️', t:'Sort out today', s:'TODAY', ph:'Say it however it comes', key:true,
+          open:"What's on today? However it comes out is fine."},
+         {k:'write', ico:'✍️', t:'Write it for me', s:'WRITE', ph:'Who it goes to, what you mean',
+          open:'Who is it going to, and what do you want them to know?'},
        ],
        copy:'Copy', copied:'Copied',
        fallback:"I'm here.",
@@ -646,9 +652,28 @@ function drawDeck() {
   });
 }
 
+/**
+ * 挑了一种模式。
+ *
+ * 原来是点完变成「选中」，然后她自己接着写——那是个表单控件，不是 agent。
+ * 她说得对：**应该是 Today 引导她**。
+ *
+ * 所以点一下，Today 当场开口问那一句——「发给谁，你想让对方知道什么？」——
+ * 她接着答就行。对话由它起头，不是她。
+ *
+ * 这一句是写死的，不是生成的：点一下要立刻有反应，等三秒再出现就不叫引导了。
+ * 而且这三句每次都成立——它们本来就是那件事的第一个问题。
+ */
 function pick(m) {
   mode = m.k;
   $('t').placeholder = m.ph;
+  if (m.open) {
+    day = {...day, messages: [...(day.messages ?? []), {
+      who: 'today', text: m.open, at: new Date().toISOString(), local: true,
+    }]};
+    typing = true;      // 舞台让开，她要答话了
+    draw();
+  }
   $('t').focus();
 }
 
