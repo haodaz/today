@@ -41,35 +41,38 @@ put('prefs.json', {lang: 'en'});
 // 一个孩子就够。两个会把每块屏都填满，看不出结构。
 put('people.json', {
   people: [
-    {
-      id: 'demo-coco',
-      name: 'Coco',
-      rel: 'daughter',
-      born: '2022-03',
-      approx: false,
-      they: 'she',
-      note: 'nursery, mornings',
-    },
+    {id: 'demo-elodie', name: 'Elodie', role: 'mum',  rel: 'mum',      they: 'she'},
+    {id: 'demo-claude', name: 'Claude', role: 'dad',  rel: 'dad',      they: 'he',
+     note: 'away Tuesday to Thursday most weeks'},
+    // 生日写到日，年龄让它自己算。note 里绝不写岁数——
+    // 写了就会和算出来的打架，而且明年还是错的。
+    {id: 'demo-coco',   name: 'Coco',   role: 'baby', rel: 'daughter', they: 'she',
+     born: '2026-02-01', approx: false},
+    {id: 'demo-stelle', name: 'Stelle', role: 'kid',  rel: 'daughter', they: 'she',
+     born: '2011-03', approx: false, note: 'year 11, GCSEs this summer'},
+    {id: 'demo-nana',   name: 'Nana',   role: 'dog',  rel: 'dog',
+     born: '2021-05', approx: false},
   ],
 });
 
 put('memory.json', {
   facts: {
     '一天的样子': [
-      {text: 'nursery drop-off at 8:30, pickup at four', at: iso(26)},
+      {text: 'Stelle leaves at 7:40; Coco naps around 9:30 and again at 1:30', at: iso(24)},
+      {text: 'Claude is away Tuesday to Thursday most weeks', at: iso(31)},
     ],
     '在办的事': [
-      {text: 'nursery consent form due Wednesday', at: iso(3)},
+      {text: "Stelle's parents' evening is Thursday", at: iso(4)},
     ],
     '她自己': [
-      {text: "hasn't been out on her own in weeks", at: iso(11)},
+      {text: "hasn't been out on her own since Coco was born", at: iso(12)},
     ],
     '一直推着的': [
       {text: 'the insurance has been sitting since spring', at: iso(40)},
     ],
     // 永不过期的那一类。电视上排在最前，因为厨房那一眼要的就是它。
     '要紧的叮嘱': [
-      {text: "Coco's inhaler goes in her bag on nursery days", at: iso(90)},
+      {text: 'Coco goes down on her back, never her front', at: iso(120)},
     ],
   },
   updatedAt: iso(0),
@@ -83,8 +86,8 @@ put('projects.json', {
       title: 'Insurance for Coco',
       forHer: false,
       steps: [
-        {text: "Find Coco's birth certificate and photograph it", note: 'while she naps', done: true, at: iso(2)},
-        {text: 'Compare two child health plans, write down the premiums', note: 'after bedtime', done: false},
+        {text: "Find Coco's birth certificate and photograph it", note: 'during the morning nap', done: true, at: iso(2)},
+        {text: 'Compare two child health plans, write down the premiums', note: 'once Coco is down', done: false},
         {text: 'Fill in the application and send it', done: false},
       ],
       at: iso(40),
@@ -122,24 +125,24 @@ const at = (d, h, m) => {
 
 const PAST = [
   [1, [
-    [9, 20, 'her', 'Coco was up half the night coughing, I am wrecked'],
-    [9, 20, 'today', "Then today stays small. The form can wait till Wednesday — it's not due before that."],
-    [14, 5, 'her', "she's brighter this afternoon, we went to the park"],
-    [14, 5, 'today', 'Good. I moved the shopping to tomorrow so this afternoon stays yours.'],
+    [9, 20, 'her', 'Coco was up half the night, I am wrecked'],
+    [9, 20, 'today', "Then today stays small. Stelle's parents' evening isn't till Thursday — it can wait."],
+    [14, 5, 'her', 'she went down at one and I actually sat down'],
+    [14, 5, 'today', 'Good. I moved the shopping to tomorrow so that hour stays yours.'],
   ]],
   [3, [
     [8, 40, 'her', 'I keep meaning to sort the insurance and never do'],
-    [8, 40, 'today', "I'm holding that one. Is it just for Coco, or for you as well?"],
-    [8, 52, 'her', 'just for her, we have never had one'],
-    [8, 52, 'today', "Right — first policy for Coco. I've broken it into four, and I'll give you one at a time."],
+    [8, 40, 'today', "I'm holding that one. Is it just for Coco, or for Stelle as well?"],
+    [8, 52, 'her', 'just Coco for now, Stelle is on her dad\'s'],
+    [8, 52, 'today', "Right — Coco's first policy. I've broken it into four, and I'll give you one at a time."],
   ]],
   [6, [
     [19, 10, 'her', 'my tooth has been going for a week and I keep not ringing'],
     [19, 10, 'today', "I've got it. Not today — but I'm not letting it slide either."],
   ]],
   [9, [
-    [7, 55, 'her', 'nursery said bring wellies tomorrow, I will forget'],
-    [7, 55, 'today', "You won't — I'll put it in front of you in the morning."],
+    [7, 55, 'her', 'Stelle needs her kit washed for tomorrow and I will forget'],
+    [7, 55, 'today', "You won't — I'll put it in front of you tonight, not in the morning."],
   ]],
 ];
 

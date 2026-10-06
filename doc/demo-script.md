@@ -47,7 +47,19 @@ phone. `adb exec-out screencap -p` for stills, `adb shell screenrecord` for moti
 — both read the framebuffer, so your room is never in frame.
 
 **Never on camera:** your home, your real `.data`, your family. Everything here
-runs on the fictional household in `scripts/demo-seed.mjs`.
+runs on the fictional household in `scripts/demo-seed.mjs`:
+
+| | |
+|---|---|
+| 👩 Elodie | the one it talks to |
+| 👨 Claude | away Tuesday to Thursday most weeks |
+| 👶 Coco | eight months |
+| 🧒 Stelle | fifteen, year 11, GCSEs this summer |
+| 🐶 Nana | five |
+
+The spread is the point. An eight-month-old and a fifteen-year-old in one house is
+a very specific kind of busy, and it makes the two-household comparison in beat 6
+land harder than two children the same age would.
 
 ---
 
@@ -76,7 +88,7 @@ Stillness is the shot. It is a screen you glance at, not one you operate.
 
 | | |
 |---|---|
-| **Type** | *the nursery form is due Wednesday and I still need to get the shopping in before pickup* |
+| **Type** | *Coco barely slept and Stelle needs her form signed for Thursday* |
 | **Screen** | Split: phone left, TV right. Let the TV catch up by itself. Don't cut — the five-second poll **is** the shot. |
 | **Say** | "She says it into her phone, however it comes out. By the time she's put her coat down, the television already shows today." |
 | | "She never stands in front of a TV to plan her day. That was never the TV's job." |
@@ -98,7 +110,7 @@ question and the breakdown happen on camera.
 |---|---|
 | **Type** | *first one, she has never had a passport* |
 | **Screen** | The breakdown appearing: four steps, each with a time that fits her day. |
-| **Dry run gave** | photo *(while you're out shopping)* → form online *(while she naps)* → print, sign, gather IDs *(after bedtime)* → post it *(on the way out)* |
+| **Dry run gave** | photo *(while you're out anyway)* → form online *(during the morning nap)* → print, sign, gather IDs *(once Coco is down)* → post it *(on the way out)* |
 | **Say** | "It breaks it down — and every step carries the moment it actually fits into." |
 | | "Then it gives her one a day. Never the whole list. Tomorrow's arrives on its own." |
 
@@ -118,7 +130,7 @@ question and the breakdown happen on camera.
 
 | | |
 |---|---|
-| **Type** | *somewhere indoors I could take Coco on Saturday?* |
+| **Type** | *somewhere warm and indoors I could take Coco on Saturday, she's eight months* |
 | **Screen** | The phone's reply in full — five or six sentences of judgement, not a list. |
 | **Say** | "Ask it something it doesn't know, and it looks it up. But it doesn't hand back a search page." |
 
@@ -126,7 +138,7 @@ question and the breakdown happen on camera.
 |---|---|
 | **Do** | TV: arrow to the new item, press **right**. |
 | **Screen** | *When · Cost · Suits · Travel* per option, one line of why under each, and "check times and prices again before you set out". |
-| **Say** | "It writes what it found into the thing itself. Times, prices, what suits a four-year-old — the parts you actually use, where you can scan them." |
+| **Say** | "It writes what it found into the thing itself. Times, prices, whether it suits a baby — the parts you actually use, where you can scan them." |
 | | "And it never pushes the whole breakdown at her. She pressed in. That's different." |
 
 ### 6 · My today, my family's today — 2:20–2:48
@@ -143,9 +155,9 @@ node /tmp/two.mjs           # or your own runner over .data.demo and .data.demo2
 | | |
 |---|---|
 | **Say** | "Same question. Same search results. Two different families." |
-| **Left** | Coco, four. Dry run: the library's free soft-play — *"chairs for you, and you can leave when you've had enough"*. Skips anything that needs booking. |
+| **Left** | Coco at eight months, Stelle at fifteen. It picks warm, quiet, and near — somewhere you can feed her and leave the minute it stops working. Skips anything that needs booking. |
 | **Right** | Jonah ten, Ada twelve. Dry run: Abbey House — *"fits both their ages"*; the museum craft session *"gives Ada something to do beyond looking"*; and honestly, *"Jonah is in the sweet spot and Ada may be past it"*. Skips the trampolines — *"too loud, too much queuing"*. |
-| **Say** | "For a four-year-old it picks warm and slow — and somewhere an adult can sit down, because she hasn't been out on her own in weeks." |
+| **Say** | "For an eight-month-old it picks warm and quiet — and somewhere she can sit down, because she hasn't been out on her own since Coco was born." |
 | | "For a ten and a twelve year old it reads the same list and tells her which ones to skip." |
 | | "That's the whole product. It isn't *a* today. It's **her** today. Her family's today." |
 
