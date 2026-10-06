@@ -29,15 +29,9 @@
     --line:rgba(107,92,231,.13);
     --shadow:0 8px 26px rgba(107,92,231,.13);
   }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --ember:#A094FF; --ember-deep:#8477F0; --ember-tint:#2A2640;
-      --warm:#E0A472;
-      --ink:#E9E6F2; --soft:#A49FBA; --faint:#6F6A85;
-      --glass:rgba(255,255,255,.065); --line:rgba(160,148,255,.16);
-      --shadow:0 8px 26px rgba(0,0,0,.44);
-    }
-  }
+  /* 这一页不跟系统深色。她的手机常年深色，但 Today 不是一个夜里用的东西——
+     而且电视那边已经有一天四个时段的光线了，两块屏各自变暗只会对不上。 */
+  :root{color-scheme:light}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   /* iOS Safari 弹出键盘时 layout viewport 不变，收起后也不复位，
      于是页面底下留一块白、内容还溢出。用 visualViewport 的实际高度顶上去。 */
@@ -50,11 +44,6 @@
       radial-gradient(118% 54% at 82% 0%, rgba(140,127,240,.17), transparent 62%),
       radial-gradient(92% 46% at 2% 16%, rgba(99,160,235,.12), transparent 58%),
       linear-gradient(168deg,#EFF3FD 0%,#F3F1FC 50%,#F8F7FC 100%);
-  }
-  @media (prefers-color-scheme: dark){
-    body{background:
-      radial-gradient(118% 54% at 82% 0%, rgba(160,148,255,.13), transparent 62%),
-      linear-gradient(168deg,#14131E,#131220);}
   }
 
   /* ── 顶部：两个 tab，沉在页面里，没有导航条 ── */
@@ -104,7 +93,6 @@
     padding:11px 13px;border-radius:15px;margin-bottom:7px;cursor:pointer;
     background:rgba(255,255,255,.5);border:1px solid var(--line);
   }
-  @media (prefers-color-scheme: dark){ .who{background:rgba(255,255,255,.05)} }
   .who .n{font-size:15px;font-weight:500}
   .who .d{font-size:12.5px;color:var(--faint);margin-top:3px}
   .who.add{text-align:center;color:var(--ember);font-size:14px;
@@ -135,7 +123,6 @@
     padding:12px 14px;border-radius:15px;margin-bottom:7px;
     background:rgba(255,255,255,.5);border:1px solid var(--line);
   }
-  @media (prefers-color-scheme: dark){ .thread{background:rgba(255,255,255,.05)} }
   .thread .t1{font-size:15px;font-weight:500;line-height:1.4}
   .thread .t2{font-size:12.5px;color:var(--faint);margin-top:3px}
 
@@ -148,6 +135,14 @@
     overflow:hidden;height:auto;
   }
   .stage.small{height:0;opacity:0;padding:0}
+  /* 打字时只收起占地方的，留下它说的那一句——
+     她正在打字，但还看得见上下文。整块收掉会剩一张空页。 */
+  .stage.typing .tiger,
+  .stage.typing .stat,
+  .stage.typing .step,
+  .stage.typing .deck{display:none}
+  .stage.typing{padding-top:6px}
+  .stage.typing .hi{font-size:17px;line-height:1.45;color:var(--soft);margin:0}
   .hi{font-size:21px;font-weight:400;line-height:1.45;text-align:center;
     margin:10px 0 0;max-width:19em}
   .hi.pending{color:var(--faint)}
@@ -252,7 +247,6 @@
     background:rgba(255,255,255,.52);border:1px solid var(--line);
     position:relative;overflow:hidden;transition:background .18s;
   }
-  @media (prefers-color-scheme: dark){ .item{background:rgba(255,255,255,.05)} }
   .item:active{background:var(--ember-tint)}
   /* 冷色系里唯一的暖色标记：这件是给你自己的 */
   .item.her::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
@@ -310,7 +304,6 @@
 
   .chip{font-size:13px;color:var(--soft);background:rgba(255,255,255,.5);
     border:1px solid var(--line);border-radius:999px;padding:5px 11px}
-  @media (prefers-color-scheme: dark){ .chip{background:rgba(255,255,255,.05)} }
   /* 有东西可看的才可点。没有的就是一行字，不要许一个空的承诺。 */
   .chip.can{cursor:pointer;color:var(--ember);border-color:var(--ember)}
   .chip.can:active{background:var(--ember-tint)}
@@ -439,6 +432,7 @@ const syncVH = () => {
 };
 syncVH();
 vv?.addEventListener('resize', syncVH);
+
 vv?.addEventListener('scroll', syncVH);
 window.addEventListener('orientationchange', () => setTimeout(syncVH, 250));
 const DICT = {
@@ -963,9 +957,24 @@ $('menu').onclick = async () => {
 const closeSheet = () => { $('sheet').hidden = true; };
 $('sheetbg').onclick = closeSheet;
 
-/** 她一开口，launch 收起，把地方让给对话。 */
-const settle = () => $('stage').classList.toggle('small',
-  tab === 'todo' || (day.messages ?? []).some(m => m.who === 'her'));
+/**
+ * 她一开口，launch 收起，把地方让给对话。
+ *
+ * 「开口」也包括**手按在输入框上**。键盘一弹，可视高度只剩四成，
+ * 而 launch 那一块（老虎 + 问候 + 今天这一步 + 卡牌）塞不下，
+ * 就从顶上被切掉——她截图里老虎只剩半只，就是这个。
+ *
+ * 调高度治不了，那是内容比容器高。正确的做法是这时候本来就不需要老虎：
+ * 她在打字，舞台让给她。
+ */
+let typing = false;
+const settle = () => {
+  const st = $('stage');
+  const gone = tab === 'todo' || (day.messages ?? []).some(m => m.who === 'her');
+  st.classList.toggle('small', gone);
+  // 还没开口、只是把手放在输入框上：收掉老虎和卡片，那一句留着。
+  st.classList.toggle('typing', !gone && typing);
+};
 
 function draw() {
   relang();
@@ -1229,6 +1238,12 @@ async function submit(text) {
   await syncProjects();
   draw();
 }
+
+/* 键盘一弹就当她开口了：收起 launch，别让它被切顶。
+   挂在这儿不挂上面那段 viewport 脚本里——那段在 body 之前跑，
+   输入框还不存在，`t?.addEventListener` 会静默什么都不做。 */
+$('t').addEventListener('focus', () => { typing = true; settle(); });
+$('t').addEventListener('blur',  () => { typing = false; settle(); });
 
 $('t').addEventListener('keydown', async e => {
   if (e.key !== 'Enter') return;

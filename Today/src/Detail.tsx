@@ -2,6 +2,7 @@ import React from 'react';
 import {Image, Modal, StyleSheet, Text, View} from 'react-native';
 import {palettes, type Daypart, type, space, safe} from './theme';
 import type {Lang} from './i18n';
+import {iconFor, isHers, needsCards} from './agent/guide';
 
 const TIGER = require('../assets/today/today-tiger.png');
 
@@ -144,17 +145,41 @@ export function Detail({payload, daypart, lang, onClose}: Props) {
               <View style={s.block}>
                 <Text style={[s.head, {color: p.textSoft}]}>{x.guide}</Text>
                 {proj.guide.options.slice(0, 3).map((o, i) => (
-                  <View key={i} style={s.opt}>
+                  <View
+                    key={i}
+                    style={[
+                      s.opt,
+                      // 多个方案才给框。三米外，三段一模一样的字是一堵墙，
+                      // 眼睛没有落点；一个方案的时候加框反而多余。
+                      needsCards(proj.guide?.options) && {
+                        backgroundColor: p.surface,
+                        borderColor: p.border,
+                        borderWidth: 1,
+                        borderRadius: 14,
+                        paddingHorizontal: space.md,
+                        paddingVertical: space.sm,
+                      },
+                    ]}>
                     <Text style={[s.optName, {color: p.text}]} numberOfLines={1}>
                       {o.name}
                     </Text>
                     <View style={s.facts}>
-                      {o.facts.slice(0, 4).map((f, j) => (
-                        <Text key={j} style={[s.fact, {color: p.textSoft}]} numberOfLines={1}>
-                          <Text style={{color: p.textFaint}}>{f.k}  </Text>
-                          {f.v}
-                        </Text>
-                      ))}
+                      {o.facts.slice(0, 4).map((f, j) => {
+                        const ic = iconFor(f.k);
+                        const mine = isHers(f.k);
+                        return (
+                          <Text
+                            key={j}
+                            style={[s.fact, {color: mine ? p.warm : p.text}]}
+                            numberOfLines={1}>
+                            {ic ? <Text style={s.ico}>{ic} </Text> : null}
+                            <Text style={{color: mine ? p.warm : p.textFaint}}>
+                              {f.k}{' '}
+                            </Text>
+                            {f.v}
+                          </Text>
+                        );
+                      })}
                     </View>
                     {o.note ? (
                       <Text style={[s.optNote, {color: p.textFaint}]} numberOfLines={2}>
@@ -247,6 +272,7 @@ const s = StyleSheet.create({
   line: {fontSize: type.meta + 2, lineHeight: 21},
   struck: {textDecorationLine: 'line-through'},
   opt: {marginBottom: space.sm},
+  ico: {fontSize: type.meta},
   optName: {fontSize: type.meta + 4, fontWeight: '600'},
   // 事实横着排，一眼扫完。竖着列会把一屏吃光，而这屏还要放拆解。
   facts: {flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: 2},
