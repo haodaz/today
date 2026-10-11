@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Image, findNodeHandle, Pressable, SafeAreaView, StatusBar, StyleSheet, Text,
-  View, useTVEventHandler,
+  View, useTVEventHandler, useWindowDimensions,
 } from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useKeepAwake} from 'expo-keep-awake';
@@ -23,6 +23,12 @@ import type {Card, Turn} from './src/agent/types';
  * 不用重新打包。
  */
 import {apiNow, DEFAULT_API, forgetApi, resolveApi} from './src/api';
+
+/**
+ * 左边那扇窗有多宽。960 dp 宽的屏，四成给窗——景色要有地方，
+ * 右边家里的事也不必拉满一整排，留白是给眼睛的。和网页版 #scene 一样。
+ */
+const SCENE_W = 392;
 
 /** 二维码边长。1080p 的电视上这个尺寸隔几米也扫得动。 */
 const QR = 160;
@@ -99,6 +105,7 @@ export default function App() {
   // 否则「I also remember」底下跟着一串中文，像两个人在说话
   const [lang, setLang] = useState(deviceLang);
   const x = t(lang);
+  const {height} = useWindowDimensions();
 
   /** 焦点停在哪一件事上。右键要开谁的详情，全靠它。 */
   const [focus, setFocus] = useState<DetailPayload | null>(null);
@@ -306,6 +313,24 @@ export default function App() {
     }
   };
 
+  /**
+   * 左右两区。
+   *
+   * 左边是一扇窗：时辰、天气、在哪儿，都在这里面；老虎也住在里面，
+   * 它说的那句话做成一个小气泡跟着它——话是它说的，就跟着它。
+   * 右边是家里的事：谁、今天这一步、今天的事、还在推的、记着的。
+   *
+   * 以前整块屏铺一张画、所有字压在上面，景色被盖住了，字也难读。
+   * 现在各占各的地方：景色完整露出来，字落在干净的底上。
+   */
+  const winH = height;
+  const artW = Math.round(winH * 16 / 9);
+  // 窗在画的右半边。往右对齐，窄条里露出来的就是窗和窗台（和网页版 background-position 一样）。
+  // 不对齐到最右：画里雨天那把伞靠在窗框右边，露出来会和老虎手里那把撞在一起。
+  const artLeft = -Math.round((artW - SCENE_W) * 0.62);
+  const bigH = 178;
+  const bigW = Math.round(bigH * (usePose ? POSE_ASPECT[usePose] : 413 / 572));
+
   return (
     <LinearGradient
       colors={p.sky}
@@ -313,80 +338,65 @@ export default function App() {
       start={{x: 0.15, y: 0}}
       end={{x: 0.85, y: 1}}
       style={s.root}>
-      {showArt ? (
-        <>
-          <Image
-            source={{uri: artUrl}}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            onError={() => setArtBad(artUrl)}
-          />
-          {/* 墙色。左栏的字全落在最浓的那段上，三米外也读得清；
-              往右渐淡，窗露出来——卡片底下透着的是窗外。 */}
+      <SafeAreaView style={s.root}>
+      <StatusBar hidden />
+      <View style={s.zones}>
+        {/* ── 左：一扇窗 ── */}
+        <View style={[s.scene, {width: SCENE_W, backgroundColor: p.sky[1]}]}>
+          {showArt ? (
+            <Image
+              source={{uri: artUrl}}
+              style={{position: 'absolute', top: 0, height: winH, width: artW, left: artLeft}}
+              resizeMode="cover"
+              onError={() => setArtBad(artUrl)}
+            />
+          ) : null}
+          {/* 上面压一点墙色给时钟，下面压一点给气泡；中间整块留给窗 */}
           <LinearGradient
-            colors={p.veil}
-            locations={[0, 0.36, 0.62, 1]}
-            start={{x: 0, y: 0.5}}
-            end={{x: 1, y: 0.5}}
+            colors={[p.veil[0], p.veil[1], p.veil[2], 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', p.veil[2]]}
+            locations={[0, 0.33, 0.42, 0.52, 0.64, 1]}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
-        </>
-      ) : null}
-      <SafeAreaView style={s.root}>
-      <StatusBar hidden />
-      <View style={s.page}>
-        {/* 左栏：时间，和 Today 说的话。
-            它说的话是第一人称，所以给它最大的字号——
-            这块屏上最重要的不是清单，是有人在替你记着。 */}
-        <View style={s.left}>
-          <Text style={[s.clock, {color: p.text}]}>{clockOf(now)}</Text>
-          <Text style={[s.date, {color: p.textSoft}]}>
-            {dateLineOf(now, lang)}
-          </Text>
-
-          {/* 天气。酒店大堂那块板子上第一样东西就是它，出门前那一眼要的也是它。
-              只给一行：几度到几度。下面那句提示只在真会改变她出门动作时才有
-              （要带伞、要加衣服），晴天二十度它自己会闭嘴。 */}
-          {turn.weather ? (
-            <View style={s.wx}>
-              <Text style={[s.wxLine, {color: p.textSoft}]}>
-                {wxLine(turn.weather, lang === 'zh')}
-              </Text>
-              {wxHint(turn.weather, lang === 'zh') ? (
-                <Text style={[s.wxHint, {color: p.warm}]} numberOfLines={1}>
-                  {wxHint(turn.weather, lang === 'zh')}
+          <View style={s.sceneTop}>
+            <Text style={[s.clock, {color: p.text}]}>{clockOf(now)}</Text>
+            <Text style={[s.date, {color: p.textSoft}]}>{dateLineOf(now, lang)}</Text>
+            {/* 天气。只给一行：几度到几度。下面那句只在真会改变她出门动作时才有
+                （带伞、加衣服），晴天二十度它自己会闭嘴。 */}
+            {turn.weather ? (
+              <View style={s.wx}>
+                <Text style={[s.wxLine, {color: p.textSoft}]}>
+                  {wxLine(turn.weather, lang === 'zh')}
                 </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          <View style={[s.rule, {backgroundColor: p.border}]} />
-
-          {/* Today 本人。它说的话紧跟在它下面——
-              这块屏上最重要的不是清单，是有人在替你记着。 */}
-          <View style={s.voice}>
+                {wxHint(turn.weather, lang === 'zh') ? (
+                  <Text style={[s.wxHint, {color: p.warm}]} numberOfLines={1}>
+                    {wxHint(turn.weather, lang === 'zh')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+          <View style={s.sceneBottom}>
             <Image
               source={usePose ? {uri: poseUrl!} : TIGER}
-              style={[s.tiger, usePose ? {width: Math.round(86 * POSE_ASPECT[usePose])} : null]}
+              style={{width: bigW, height: bigH}}
               resizeMode="contain"
               onError={() => poseUrl && setPoseBad(poseUrl)}
             />
-            {/* 四行封顶。模型输出的长度不可控，界面不能指望它守规矩——
-                溢出会把下面的内容顶出屏幕。 */}
-            {/* 它说的话可能是一整段——她问了个要查的事，那段话是给手机看的，
-                在路上她也是看手机。这块屏只取开头一两句，断在句号上，
-                不从词中间切；完整的那份在手机里，整理好的那份按右键看。 */}
-            <Text style={[s.say, {color: p.text}]} numberOfLines={3}>
-              {glance(turn.say) || x.empty}
-            </Text>
+            {/* 它说的话。电视不是用来读长文的——只取开头一两句，完整的在手机上。
+                五行封顶：模型输出的长度不可控，界面不能指望它守规矩。 */}
+            <View style={[s.bubble, {backgroundColor: p.surface, borderColor: p.border, shadowColor: p.shadow}]}>
+              <Text style={[s.say, {color: p.text}]} numberOfLines={5}>
+                {glance(turn.say) || x.empty}
+              </Text>
+            </View>
           </View>
+        </View>
 
-          {/* 「接」：今天替她推的那一步。
-              一天一步，拆出来的其余几步收着不给看——
-              她能看见「保险 2/4」的那一刻，这就成了又一个要维护的看板。
-              放左栏是因为这是 Today 自己在办的事，和它说的话是一回事；
-              右栏那边高度不可控，加东西会把卡片顶出屏幕。 */}
+        {/* ── 右：家里的事 ── */}
+        <View style={s.family}>
+          {faces ? <View style={s.facesRow}>{faces}</View> : null}
+
           {step?.text ? (
             <View
               style={[
@@ -407,42 +417,12 @@ export default function App() {
             </View>
           ) : null}
 
-          {later?.type === 'later' && laterShown.length ? (
-            <View style={s.laterBlock}>
-              <Text style={[s.smallHead, {color: p.textFaint}]}>
-                {x.notToday}
-              </Text>
-              {/* 三条，不是四条——上面那一步要地方，而「今天不做」
-                  是这块屏上最不紧要的一块。 */}
-              {/* 这几条多半就是在推的大事。它们在这儿看着最不起眼，
-                  但按进去是内容最多的——所以也要能聚焦。
-                  右栏已经在摆「还在推着的」时，这儿就不要再说一遍——
-                  同一屏上同样三行出现两次，看着像坏了。 */}
-              {laterShown.slice(0, 3).map((l, i) => (
-                <LaterRow
-                  key={i}
-                  label={l}
-                  accent={p.accent}
-                  faint={p.textFaint}
-                  show={hasDepth(detailFor(l))}
-                  onFocusIn={() => setFocus(detailFor(l))}
-                  onOpen={() => {
-                    const d = detailFor(l);
-                    if (hasDepth(d)) setOpen(d);
-                  }}
-                />
-              ))}
-            </View>
-          ) : null}
-        </View>
 
-        {/* 右栏：卡片。结构化的东西走卡片，不塞进对话里让人去读。 */}
-        <View style={s.right}>
+          <View style={s.right}>
           {items.length > 0 ? (
             <>
               <View style={s.cardHead}>
                 <Text style={[s.section, {color: p.textSoft}]}>{x.today}</Text>
-                {faces}
                 <Text style={[s.count, {color: p.textFaint}]}>
                   {left === 0 ? x.allDone : x.leftN(left)}
                 </Text>
@@ -466,26 +446,6 @@ export default function App() {
                 />
               ))}
 
-              {/* Today 记着的。她得看得见它记住了什么，才谈得上信任。 */}
-              {memory?.type === 'memory' ? (
-                <View style={[s.memBlock, {backgroundColor: p.surface, borderColor: p.border}]}>
-                  <Text style={[s.smallHead, {color: p.textFaint}]}>
-                    {x.iRemember}
-                  </Text>
-                  {memory.items.slice(0, 3).map(m => (
-                    <Text
-                      key={m.id}
-                      style={[s.smallItem, {color: p.textFaint}]}
-                      numberOfLines={1}>
-                      {m.text}
-                    </Text>
-                  ))}
-                </View>
-              ) : (
-                <Text style={[s.footer, {color: p.textFaint}]}>
-                  {x.remoteHint}
-                </Text>
-              )}
             </>
           ) : projects.length ? (
             /* 今天还没理，但手上并不是空的。
@@ -495,7 +455,6 @@ export default function App() {
             <>
               <View style={s.cardHead}>
                 <Text style={[s.section, {color: p.textSoft}]}>{x.carrying}</Text>
-                {faces}
               </View>
               {projects.slice(0, 3).map((q, i) => (
                 <TaskRow
@@ -515,7 +474,7 @@ export default function App() {
               ))}
               <View style={[s.tuck, {backgroundColor: p.surface, borderColor: p.border}]}>
                 <View style={[s.qrSmall, {backgroundColor: '#FFFFFF'}]}>
-                  <QRCode value={scanUrl} size={76} color="#1C1D1C" backgroundColor="#FFFFFF" />
+                  <QRCode value={scanUrl} size={52} color="#1C1D1C" backgroundColor="#FFFFFF" />
                 </View>
                 <Text style={[s.smallItem, {color: p.textFaint, flex: 1}]}>
                   {x.scanHint}
@@ -540,6 +499,50 @@ export default function App() {
               </Text>
             </View>
           )}
+          </View>
+
+          {/* 今天不做。标题和条目并成一行，竖排：电视上上下键移动、右键按进去。
+              右栏已经在摆「还在推着的」时，同一件事不再列一遍（laterShown 去过重）。 */}
+          {later?.type === 'later' && laterShown.length ? (
+            <View style={s.laterBlock}>
+              <Text style={[s.smallHead, s.laterHead, {color: p.textFaint}]}>
+                {x.notToday}
+              </Text>
+              <View style={s.laterList}>
+                {laterShown.slice(0, 3).map((l, i) => (
+                  <LaterRow
+                    key={i}
+                    label={l}
+                    accent={p.accent}
+                    faint={p.textFaint}
+                    show={hasDepth(detailFor(l))}
+                    onFocusIn={() => setFocus(detailFor(l))}
+                    onOpen={() => {
+                      const d = detailFor(l);
+                      if (hasDepth(d)) setOpen(d);
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Today 记着的。她得看得见它记住了什么，才谈得上信任。 */}
+          {items.length > 0 ? (
+            memory?.type === 'memory' ? (
+              <View style={[s.memBlock, {backgroundColor: p.surface, borderColor: p.border}]}>
+                <Text style={[s.smallHead, {color: p.textFaint}]}>{x.iRemember}</Text>
+                {/* 右区一屏就这么高：卡片满三张的时候只留两行 */}
+                {memory.items.slice(0, items.length >= 3 ? 2 : 3).map(m => (
+                  <Text key={m.id} style={[s.smallItem, {color: p.textFaint}]} numberOfLines={1}>
+                    {m.text}
+                  </Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={[s.footer, {color: p.textFaint}]}>{x.remoteHint}</Text>
+            )
+          ) : null}
         </View>
       </View>
 
@@ -558,17 +561,17 @@ export default function App() {
 
 const s = StyleSheet.create({
   root: {flex: 1},
-  page: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingHorizontal: safe.h,
-    paddingVertical: safe.v,
-  },
-  // 内容比容器高时，居中会上下同时溢出——时间会被切掉顶。
-  // 改成顶部对齐，并给整列留出余量。
-  // 那句话是模型生成的，长度不可控，所以左栏不能靠固定间距硬凑。
-  // say 设成可伸缩，长了自己占空间，短了把「今天不做」往上收。
-  left: {width: '38%', paddingRight: space.lg, paddingTop: space.sm},
+  zones: {flex: 1, flexDirection: 'row'},
+  scene: {overflow: 'hidden'},
+  sceneTop: {position: 'absolute', left: safe.h, top: safe.v, right: 24},
+  sceneBottom: {position: 'absolute', left: 28, right: 22, bottom: 14,
+    flexDirection: 'row', alignItems: 'flex-end'},
+  // 气泡：它说的话。尾巴朝左下，指着老虎
+  bubble: {flex: 1, marginLeft: space.sm, marginBottom: 96, paddingVertical: 9, paddingHorizontal: 13,
+    borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1,
+    shadowOpacity: 1, shadowRadius: 18, shadowOffset: {width: 0, height: 6}, elevation: 4},
+  family: {flex: 1, paddingTop: 20, paddingBottom: 24, paddingLeft: 34, paddingRight: safe.h},
+  facesRow: {flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6},
   clock: {
     fontSize: type.clock,
     fontWeight: '300',
@@ -576,16 +579,10 @@ const s = StyleSheet.create({
     lineHeight: type.clock * 1.05,
   },
   date: {fontSize: type.section, marginTop: space.xs, letterSpacing: 0.5},
-  rule: {height: 1, width: 44, marginVertical: space.sm},
   wx: {marginTop: space.xs},
   wxLine: {fontSize: type.section, letterSpacing: 0.3},
   wxHint: {fontSize: type.meta, marginTop: 1},
-  // 老虎在话的上面，不在旁边——并排会把文字挤窄，一句话从三行变五行，
-  // 整列就撑出屏幕了。而且先看见它、再听见它说话，顺序也对。
-  voice: {alignItems: 'flex-start'},
-  // 不要太大。它是陪着的，不是主角；主角是她今天要过的日子。
-  tiger: {width: 62, height: 86, marginBottom: space.xs},
-  say: {flexShrink: 1, fontSize: type.greeting, fontWeight: '300', lineHeight: 34},
+  say: {fontSize: 16, lineHeight: 22},
   // 左边一道竖线，三米外也看得出这是一块独立的东西，
   // 而且比加标题框省垂直空间——左栏只剩八十来 dp。
   stepBlock: {
@@ -596,14 +593,17 @@ const s = StyleSheet.create({
   },
   stepText: {fontSize: type.task, lineHeight: 26, marginTop: 1},
   stepNote: {fontSize: type.meta, marginTop: 3},
-  laterBlock: {marginTop: space.sm, paddingBottom: space.xs},
+  laterBlock: {flexDirection: 'row', alignItems: 'flex-start', marginTop: space.xs,
+    paddingHorizontal: space.xs},
+  laterHead: {marginRight: space.md, marginBottom: 0, lineHeight: 18},
+  laterList: {flex: 1},
   memBlock: {marginTop: space.md, paddingVertical: space.sm, paddingHorizontal: space.md,
     borderRadius: 12, borderWidth: 1},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
   smallItem: {fontSize: type.meta, lineHeight: 18},
   // 右栏的高度不可控（卡片数 + 记忆条数），居中会上下同时溢出。
   // 顶部对齐 + 内容自行收缩。
-  right: {flex: 1, justifyContent: 'center', paddingVertical: space.xs},
+  right: {paddingVertical: space.xs},
   cardHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -614,8 +614,6 @@ const s = StyleSheet.create({
   faces: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 'auto',
-    marginRight: space.md,
     paddingVertical: 3,
     paddingLeft: 4,
     paddingRight: space.md,
@@ -633,8 +631,8 @@ const s = StyleSheet.create({
   qrFrame: {padding: space.md, borderRadius: 20},
   // 二维码缩到底下：扫码是一次性动作，不该占着整块屏
   // 和「我记着的」一样垫一块底：窗台和盆栽就在它后面，字压上去读不出来
-  tuck: {flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.md,
-    padding: space.sm, paddingRight: space.lg, borderRadius: 16, borderWidth: 1},
-  qrSmall: {padding: space.sm, borderRadius: 12},
+  tuck: {flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.xs,
+    padding: 6, paddingRight: space.lg, borderRadius: 14, borderWidth: 1},
+  qrSmall: {padding: 5, borderRadius: 9},
   scanHint: {fontSize: type.section, marginTop: space.md, textAlign: 'center'},
 });

@@ -132,7 +132,7 @@
   /* 给评委的操作说明。网页版没有遥控器，这一行是唯一告诉人「能按进去」的地方，
      压在窗景上看不见就等于没写——所以垫一块底。 */
   .hint{
-    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    position:fixed;bottom:14px;right:18px;
     font-size:15px;color:var(--soft);letter-spacing:.3px;
     padding:6px 16px;border-radius:999px;
     background:var(--surface);border:1px solid var(--border);
@@ -144,18 +144,13 @@
   body[data-part="dawn"]{--v0:rgba(240,238,250,.90);--v1:rgba(240,238,250,.80);--v2:rgba(240,238,250,.30);--v3:rgba(240,238,250,.06)}
   body[data-part="dusk"]{--v0:rgba(242,235,244,.90);--v1:rgba(242,235,244,.80);--v2:rgba(242,235,244,.32);--v3:rgba(242,235,244,.08)}
   body[data-part="night"]{--v0:rgba(18,17,28,.88);--v1:rgba(18,17,28,.76);--v2:rgba(18,17,28,.34);--v3:rgba(18,17,28,.12)}
-  #art,#veil{position:absolute;inset:0;opacity:0;transition:opacity .9s ease}
-  #art{background-size:cover;background-position:center}
-  #veil{pointer-events:none;
-    background:linear-gradient(90deg,var(--v0) 0%,var(--v1) 36%,var(--v2) 62%,var(--v3) 100%)}
-  #tv.art #art,#tv.art #veil{opacity:1}
+
   /* 家里人。标题那一行右边一排，卡片上提到谁就挂谁——和 App.tsx 同一套。 */
   .faces{display:flex;align-items:center;gap:10px;margin-left:auto;margin-right:12px;
     padding:4px 12px 4px 5px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
   .fam{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--soft)}
   .face{width:24px;height:24px;border-radius:50%;border:2px solid;object-fit:cover;background:#fff}
   .who{width:32px;height:32px;border-radius:50%;border:2px solid;object-fit:cover;margin-left:13px;flex:none;background:#fff}
-  #main{position:relative;z-index:1}
   #detail{z-index:2}
   /* 按进去还是同一扇窗——前后不像两个 app。墙色浓一些，因为这一层全是字。 */
   #tv.art #detail{background:var(--vd)}
@@ -163,27 +158,81 @@
   body[data-part="dawn"]{--vd:rgba(240,238,250,.90)}
   body[data-part="dusk"]{--vd:rgba(242,235,244,.90)}
   body[data-part="night"]{--vd:rgba(18,17,28,.90)}
+
+  /* ── 两区 ─────────────────────────────────────── */
+  #scene{position:absolute;left:0;top:0;bottom:0;width:392px;overflow:hidden;background:var(--s2)}
+  /* 窗在画的右半边：往右对齐，窄条里露出来的就是窗和窗台 */
+  #art{position:absolute;inset:0;background-size:cover;background-position:62% center;
+    opacity:0;transition:opacity .9s ease}
+  #tv.art #art{opacity:1}
+  /* 上面压一点墙色给时钟，下面压一点给气泡；中间整块留给窗 */
+  #scrim{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,var(--v0) 0%,var(--v1) 33%,var(--v2) 42%,rgba(0,0,0,0) 52%,rgba(0,0,0,0) 64%,var(--v2) 100%)}
+  .sceneTop{position:absolute;left:44px;top:30px;right:24px}
+  .sceneBottom{position:absolute;left:28px;right:22px;bottom:14px;display:flex;align-items:flex-end;gap:8px}
+  #big{height:178px;flex:none;filter:drop-shadow(0 6px 10px rgba(40,30,60,.22))}
+  .bubble{position:relative;flex:1;margin-bottom:96px;padding:9px 13px;border-radius:16px 16px 16px 4px;
+    background:var(--surface);border:1px solid var(--border);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 6px 18px var(--shadow)}
+  .bubble .say{font-size:16px;line-height:22px;font-weight:400;margin:0}
+
+  #family{position:absolute;left:392px;right:0;top:0;bottom:0;padding:20px 44px 24px 34px;
+    display:flex;flex-direction:column;max-width:none}
+  #family > *{max-width:520px}
+  #faces{display:flex;justify-content:flex-end;max-width:none !important;min-height:30px;margin-bottom:10px}
+  #faces .faces{margin:0}
+  #step{margin-bottom:12px}
+  #step .step{margin-top:0}
+  #right{flex:1;justify-content:flex-start}
+  /* 右区一屏就这么高，每一处都收一点 */
+  #faces{margin-bottom:6px !important}
+  #step{margin-bottom:8px !important}
+  #right .cardHead{margin-bottom:8px}
+  #right .row{padding:10px 18px;margin-bottom:7px}
+  /* 「今天不做」标题和条目并成一行 */
+  #family .laterBlock{margin-top:4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;padding:0 5px}
+  #family .laterBlock .smallHead{margin:0}
+  #family #later{display:flex;flex-wrap:wrap;gap:0 14px}
+  /* 右区窄了，卡片的小字不许折行——电视 app 里本来就只显示一行 */
+  #right .note{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #right .label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #right .row > div{min-width:0}          /* 弹性盒里的文字要能被截断，得先允许它比内容窄 */
+  #right .memItem{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #detail{z-index:2}
 </style>
 </head>
 <body data-part="day">
 
 <div id="tv">
-  <div id="art"></div><div id="veil"></div>
-  <div class="page" id="main">
-    <div class="left">
+  <!--
+    左右两区。
+    左边是一扇窗：时辰、天气、在哪儿，都在这里面；老虎也住在这里面，
+    它说的那句话做成一个小气泡跟着它——话是它说的。
+    右边是家里的事：谁、今天这一步、今天的事、还在推的、记着的。
+    景色不再被字盖着；右边也不必拉满，留白是给眼睛的。
+  -->
+  <div id="scene">
+    <div id="art"></div><div id="scrim"></div>
+    <div class="sceneTop">
       <div class="clock" id="clock"></div>
       <div class="date" id="date"></div>
       <div id="wx"></div>
-      <div class="rule"></div>
-      <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
-      <p class="say" id="say"></p>
-      <div id="step"></div>
-      <div class="laterBlock" id="laterBlock" hidden>
-        <div class="smallHead" id="laterHead"></div>
-        <div id="later"></div>
-      </div>
     </div>
-    <div class="right" id="right"></div>
+    <div class="sceneBottom">
+      <img id="big" alt="">
+      <div class="bubble"><p class="say" id="say"></p></div>
+    </div>
+  </div>
+  <img class="tiger" id="tiger" src="/today-tiger.png" alt="" hidden>
+
+  <div id="family">
+    <div id="faces"></div>
+    <div id="step"></div>
+    <div id="right"></div>
+    <div class="laterBlock" id="laterBlock" hidden>
+      <div class="smallHead" id="laterHead"></div>
+      <div id="later"></div>
+    </div>
   </div>
 
   <div id="detail">
@@ -289,6 +338,10 @@ function tiger(){
   const pose = p==='night' ? 'sleep' : sky==='rain' ? 'umbrella' : sky==='snow' ? 'scarf' : null;
   const t = $('tiger');
   const want = pose ? `/art/tiger-${pose}.png` : '/today-tiger.png';
+  if ($('big').getAttribute('src') !== want) {
+    $('big').onerror = () => { $('big').onerror = null; $('big').src = '/today-tiger.png'; };
+    $('big').src = want;
+  }
   if (t.getAttribute('src') === want) return;
   t.onerror = () => { t.onerror = null; t.src = '/today-tiger.png'; t.style.width = ''; };
   t.src = want;
@@ -349,6 +402,21 @@ const projectFor = label => {
 const deep = p => !!(p && (p.steps?.length || p.asked || p.guide?.options?.length));
 
 /** 能按进去的东西，按屏幕上从上到下的顺序。 */
+/*
+ * 「今天不做」里要摆哪几条。
+ * 右栏已经在摆「还在推着的」时，同一件事别再列一遍——同一屏上同样的字出现两次，
+ * 看着像坏了（和 App.tsx 的 laterShown 一样）。渲染和遥控器导航用的是同一份，
+ * 下标才对得上：以前今天没理的时候，导航列表里压根没有这几条，
+ * 点「今天不做」第一条，开出来的是右栏第一张卡。
+ */
+function laterList(){
+  const tasks = (turn.cards||[]).find(c=>c.type==='tasks');
+  const carrying = !tasks?.items?.length;
+  const shown = new Set(carrying ? (turn.projects||[]).slice(0,3).map(q=>tidy(q.title)) : []);
+  const later = (turn.cards||[]).find(c=>c.type==='later');
+  return (later?.items||[]).filter(l=>!shown.has(tidy(l))).slice(0,3);
+}
+
 function targets(){
   const out = [];
   const tasks = (turn.cards||[]).find(c=>c.type==='tasks');
@@ -356,14 +424,13 @@ function targets(){
   if (!tasks?.items?.length && (turn.projects||[]).length) {
     for (const q of (turn.projects||[]).slice(0,3))
       out.push({kind:'carry', label:q.title, forHer:q.forHer, project:q, can:deep(q)});
-    return out;
+  } else {
+    for (const t of tasks?.items ?? []) {
+      const p = projectFor(t.label);
+      out.push({kind:'task', label:t.label, note:t.note, forHer:t.forHer, project:p, can:deep(p)});
+    }
   }
-  for (const t of tasks?.items ?? []) {
-    const p = projectFor(t.label);
-    out.push({kind:'task', label:t.label, note:t.note, forHer:t.forHer, project:p, can:deep(p)});
-  }
-  const later = (turn.cards||[]).find(c=>c.type==='later');
-  for (const l of later?.items ?? []) {
+  for (const l of laterList()) {
     const p = projectFor(l);
     out.push({kind:'later', label:l, project:p, can:deep(p)});
   }
@@ -394,6 +461,10 @@ function faces(){
 
 function draw(){
   const el = (c,t='div')=>{const e=document.createElement(t);e.className=c;return e;};
+  // 右栏会被清空重画，「今天不做」先挪出来，画完再插回卡片和「我记着的」之间
+  $('family').append($('laterBlock'));
+  // 家里人那一排：右区最上面
+  $('faces').innerHTML = ''; if ((turn.family||[]).length) $('faces').append(faces());
   $('say').textContent = glance(turn.say) || X().empty;
   art();
 
@@ -429,7 +500,7 @@ function draw(){
   const carry = !items.length ? (turn.projects||[]).slice(0,3) : [];
   if (carry.length){
     const head = el('cardHead');
-    const s1 = el('section'); s1.textContent = X().carrying; head.append(s1, faces());
+    const s1 = el('section'); s1.textContent = X().carrying; head.append(s1);
     $('right').append(head);
     carry.forEach((q,i)=>{
       const row = el('row'+(i===picked?' on':''));
@@ -450,7 +521,7 @@ function draw(){
     const head = el('cardHead');
     const s1 = el('section'); s1.textContent = X().today;
     const s2 = el('count'); s2.textContent = left===0 ? X().allDone : X().left(left);
-    head.append(s1, faces(), s2); $('right').append(head);
+    head.append(s1, s2); $('right').append(head);
     items.forEach((t,i)=>{
       const idx = i;
       const row = el('row'+(idx===picked?' on':''));
@@ -472,18 +543,20 @@ function draw(){
   if (mem?.items?.length){
     const block = el('memBlock');
     const h = el('smallHead'); h.textContent = X().remember; block.append(h);
-    mem.items.slice(0,3).forEach(m=>{const e=el('memItem');e.textContent=m.text;block.append(e);});
+    // 右区一屏就这么高：卡片满三张的时候只留两行
+    const rows = $('right').querySelectorAll('.row').length >= 3 ? 2 : 3;
+    mem.items.slice(0,rows).forEach(m=>{const e=el('memItem');e.textContent=m.text;block.append(e);});
     $('right').append(block);
   }
 
   // 今天不做
-  const later = (turn.cards||[]).find(c=>c.type==='later');
-  const base = items.length;
-  if (later?.items?.length){
+  const laterItems = laterList();
+  const base = all.filter(t=>t.kind!=='later').length;
+  if (laterItems.length){
     $('laterBlock').hidden = false;
     $('laterHead').textContent = X().notToday;
     $('later').innerHTML = '';
-    later.items.slice(0,3).forEach((l,i)=>{
+    laterItems.forEach((l,i)=>{
       const idx = base+i;
       const can = all[idx]?.can;
       const e = el('laterItem'+(can?' can':'')+(idx===picked?' on':''));
@@ -492,6 +565,10 @@ function draw(){
       $('later').append(e);
     });
   } else $('laterBlock').hidden = true;
+  { const mem = $('right').querySelector('.memBlock');
+    mem ? $('right').insertBefore($('laterBlock'), mem) : $('right').append($('laterBlock')); }
+
+
 
   $('hint').textContent = X().hint;
 }

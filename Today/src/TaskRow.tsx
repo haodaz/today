@@ -163,10 +163,11 @@ const s = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: space.md,
+    // 右区一屏就这么高（左边四成给了窗），每张卡收一点
+    paddingVertical: 10,
     paddingHorizontal: space.lg,
     borderRadius: 16,
-    marginBottom: space.sm,
+    marginBottom: 7,
     overflow: 'hidden',
   },
   herEdge: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 4},
