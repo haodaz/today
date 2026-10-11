@@ -169,9 +169,11 @@
   #scrim{position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(180deg,var(--v0) 0%,var(--v1) 33%,var(--v2) 42%,rgba(0,0,0,0) 52%,rgba(0,0,0,0) 64%,var(--v2) 100%)}
   .sceneTop{position:absolute;left:44px;top:30px;right:24px}
-  .sceneBottom{position:absolute;left:28px;right:22px;bottom:14px;display:flex;align-items:flex-end;gap:8px}
-  #big{height:178px;flex:none;filter:drop-shadow(0 6px 10px rgba(40,30,60,.22))}
-  .bubble{position:relative;flex:1;margin-bottom:96px;padding:9px 13px;border-radius:16px 16px 16px 4px;
+  .sceneBottom{position:absolute;left:28px;right:22px;bottom:0;display:flex;align-items:flex-end;gap:8px}
+  #big{height:196px;flex:none;filter:drop-shadow(0 6px 10px rgba(40,30,60,.22))}
+  #big.full{height:178px;margin-bottom:14px}
+  #big.umbrella{height:226px}
+  .bubble{position:relative;flex:1;margin-bottom:110px;padding:9px 13px;border-radius:16px 16px 16px 4px;
     background:var(--surface);border:1px solid var(--border);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 6px 18px var(--shadow)}
   .bubble .say{font-size:16px;line-height:22px;font-weight:400;margin:0}
@@ -331,16 +333,21 @@ function art(){
 }
 
 /* 老虎跟着窗外换姿势：入夜打盹、下雨撑伞、下雪围围巾。和 src/theme.ts 的 poseOf 一样。 */
-const ASPECT = {umbrella:.88, scarf:.78, sleep:.8};
+const ASPECT = {default:.833, umbrella:1, scarf:.856, sleep:.8};
+const FULL = {sleep:true};
 function tiger(){
   const p = part(new Date().getHours());
   const sky = forceSky || skyOf(turn && turn.weather && turn.weather.kind);
   const pose = p==='night' ? 'sleep' : sky==='rain' ? 'umbrella' : sky==='snow' ? 'scarf' : null;
   const t = $('tiger');
   const want = pose ? `/art/tiger-${pose}.png` : '/today-tiger.png';
-  if ($('big').getAttribute('src') !== want) {
+  // 窗里那只：半身的贴着底边（底下切齐了），打盹那只是全身、离底边留一点
+  const bigWant = `/art/tiger-${pose || 'default'}.png`;
+  if ($('big').getAttribute('src') !== bigWant) {
     $('big').onerror = () => { $('big').onerror = null; $('big').src = '/today-tiger.png'; };
-    $('big').src = want;
+    $('big').src = bigWant;
+    $('big').classList.toggle('full', !!FULL[pose]);
+    $('big').classList.toggle('umbrella', pose === 'umbrella');
   }
   if (t.getAttribute('src') === want) return;
   t.onerror = () => { t.onerror = null; t.src = '/today-tiger.png'; t.style.width = ''; };

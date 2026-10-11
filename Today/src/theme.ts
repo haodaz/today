@@ -46,7 +46,20 @@ export const sceneOf = (d: Daypart, kind?: string) => `${d}-${skyOf(kind)}`;
  * 宽高比跟着走，好让每个姿势都靠左站，不在框里飘。
  */
 export type Pose = 'sleep' | 'umbrella' | 'scarf';
-export const POSE_ASPECT: Record<Pose, number> = {umbrella: 0.88, scarf: 0.78, sleep: 0.8};
+export const POSE_ASPECT: Record<Pose | 'default', number> = {
+  default: 0.833, umbrella: 1.0, scarf: 0.856, sleep: 0.8,
+};
+/**
+ * 半身的几只底下是一条切齐的边，贴着屏幕底摆，身子就像顺着画框出去了。
+ * 打盹那只是全身（裹着毯子坐着），离底边留一点，像坐在窗台上。
+ */
+export const POSE_FULL_BODY: Record<Pose | 'default', boolean> = {
+  default: false, umbrella: false, scarf: false, sleep: true,
+};
+/** 窗里那只多高。撑伞那张大半是伞，老虎本身小一圈，所以整张放大一点，让几只看着一样大。 */
+export const POSE_HEIGHT: Record<Pose | 'default', number> = {
+  default: 196, umbrella: 226, scarf: 196, sleep: 178,
+};
 
 export function poseOf(d: Daypart, kind?: string): Pose | null {
   if (d === 'night') return 'sleep';

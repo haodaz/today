@@ -8,7 +8,7 @@ import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
 import {Detail, type DetailPayload} from './src/Detail';
-import {daypartOf, palettes, POSE_ASPECT, poseOf, safe, sceneOf, space, type} from './src/theme';
+import {daypartOf, palettes, POSE_ASPECT, POSE_FULL_BODY, POSE_HEIGHT, poseOf, safe, sceneOf, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
 import {hint as wxHint, line as wxLine} from './src/agent/weather';
 import type {Card, Turn} from './src/agent/types';
@@ -218,10 +218,11 @@ export default function App() {
   const showArt = artBad !== artUrl;
 
   // 老虎跟着窗外换姿势。取不到就是原来那只——它本来就在包里。
-  const pose = poseOf(daypart, turn.weather?.kind);
-  const poseUrl = pose ? `${api}/art/tiger-${pose}.png` : null;
+  // 没有特别天气时也取服务端那只「切齐了底边」的；APK 里自带的那只底下是渐隐的，只作兜底
+  const pose = poseOf(daypart, turn.weather?.kind) ?? 'default';
+  const poseUrl = `${api}/art/tiger-${pose}.png`;
   const [poseBad, setPoseBad] = useState<string | null>(null);
-  const usePose = pose && poseUrl && poseBad !== poseUrl ? pose : null;
+  const usePose = poseBad !== poseUrl ? pose : null;
 
   const tasks = turn.cards.find(c => c.type === 'tasks');
   const later = turn.cards.find(c => c.type === 'later');
@@ -328,7 +329,8 @@ export default function App() {
   // 窗在画的右半边。往右对齐，窄条里露出来的就是窗和窗台（和网页版 background-position 一样）。
   // 不对齐到最右：画里雨天那把伞靠在窗框右边，露出来会和老虎手里那把撞在一起。
   const artLeft = -Math.round((artW - SCENE_W) * 0.62);
-  const bigH = 178;
+  const full = usePose ? POSE_FULL_BODY[usePose] : true;
+  const bigH = usePose ? POSE_HEIGHT[usePose] : 178;
   const bigW = Math.round(bigH * (usePose ? POSE_ASPECT[usePose] : 413 / 572));
 
   return (
@@ -378,8 +380,8 @@ export default function App() {
           </View>
           <View style={s.sceneBottom}>
             <Image
-              source={usePose ? {uri: poseUrl!} : TIGER}
-              style={{width: bigW, height: bigH}}
+              source={usePose ? {uri: poseUrl} : TIGER}
+              style={{width: bigW, height: bigH, marginBottom: full ? 14 : 0}}
               resizeMode="contain"
               onError={() => poseUrl && setPoseBad(poseUrl)}
             />
@@ -564,10 +566,10 @@ const s = StyleSheet.create({
   zones: {flex: 1, flexDirection: 'row'},
   scene: {overflow: 'hidden'},
   sceneTop: {position: 'absolute', left: safe.h, top: safe.v, right: 24},
-  sceneBottom: {position: 'absolute', left: 28, right: 22, bottom: 14,
+  sceneBottom: {position: 'absolute', left: 28, right: 22, bottom: 0,
     flexDirection: 'row', alignItems: 'flex-end'},
   // 气泡：它说的话。尾巴朝左下，指着老虎
-  bubble: {flex: 1, marginLeft: space.sm, marginBottom: 96, paddingVertical: 9, paddingHorizontal: 13,
+  bubble: {flex: 1, marginLeft: space.sm, marginBottom: 110, paddingVertical: 9, paddingHorizontal: 13,
     borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1,
     shadowOpacity: 1, shadowRadius: 18, shadowOffset: {width: 0, height: 6}, elevation: 4},
   family: {flex: 1, paddingTop: 20, paddingBottom: 24, paddingLeft: 34, paddingRight: safe.h},

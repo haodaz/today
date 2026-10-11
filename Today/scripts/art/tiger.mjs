@@ -61,7 +61,7 @@ if (!fs.existsSync(ref)) {
  * 再把隧道地址传进来：TIGER_REF=https://xxx.trycloudflare.com/art/ref-tiger.jpg
  */
 const REF_URL = process.env.TIGER_REF;
-if (!REF_URL && process.argv[2] !== '--rekey') { console.error('要先给 TIGER_REF（参考图的公网地址）'); process.exit(1); }
+if (!REF_URL && !['--rekey', '--cut'].includes(process.argv[2])) { console.error('要先给 TIGER_REF（参考图的公网地址）'); process.exit(1); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /** ffmpeg 只给 -i 不给输出时会报错退出，尺寸在它的错误输出里。 */
@@ -85,8 +85,30 @@ function sizeOf(file) {
  *   第一次用 ffmpeg 的 despill，它把那把黄伞减成了橙伞；换 colorkey 不去溢色，
  *   又留了一圈绿毛边。这个式子两头都顾到了。
  */
-/** 半身的姿势，底部像原图一样渐隐——原图垫在绿底上，那段渐隐会变成一条发绿的边。 */
+/** 半身的姿势。原图底下本来是渐隐的，这几张跟着带了一截淡出去的身子。 */
 const HALF = new Set(['scarf', 'umbrella']);
+
+/**
+ * 身子还是实的最低那一行。
+ *
+ * 看一行里「完全不透明」的像素占这一行可见像素的多少：身子那几行几乎全是实的，
+ * 渐隐那截越往下越少。从下往上找第一行过八成的，切在那儿。
+ * 用比例不用宽度：撑伞那只上面是一把大伞，按宽度算，最宽的那行是脸，会切到下巴。
+ */
+function solidBottom(px, W, x0, x1, y0, y1) {
+  const ratio = y => {
+    let vis = 0, full = 0;
+    for (let x = x0; x <= x1; x++) { const a = px[(y * W + x) * 4 + 3]; if (a > 24) { vis++; if (a >= 250) full++; } }
+    return vis < 20 ? 0 : full / vis;
+  };
+  for (let y = y1; y > y0 + (y1 - y0) * 0.5; y--) {
+    if (ratio(y) >= 0.8) {
+      for (let yy = y + 1; yy <= y1; yy++) for (let x = x0; x <= x1; x++) px[(yy * W + x) * 4 + 3] = 0;
+      return y;
+    }
+  }
+  return y1;
+}
 
 function key(raw, name) {
   const [W, H] = sizeOf(raw);
@@ -105,16 +127,12 @@ function key(raw, name) {
     px[i + 3] = a;
     if (a > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   }
-  if (HALF.has(name) && y1 > y0) {
-    const fadeFrom = y1 - Math.round((y1 - y0) * 0.12);
-    for (let y = fadeFrom; y <= y1; y++) {
-      const k = 1 - (y - fadeFrom) / (y1 - fadeFrom + 1);
-      for (let x = x0; x <= x1; x++) { const i = (y * W + x) * 4 + 3; px[i] = Math.round(px[i] * k); }
-    }
-  }
+  // 半身的：把底下淡出去的那截切掉，切出一条齐边——摆的时候贴着屏幕底，
+  // 身子就像顺着画框出去了，而不是在半空里淡掉
+  if (HALF.has(name)) y1 = solidBottom(px, W, x0, x1, y0, y1);
   const pad = 8;
   x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
-  x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+  x1 = Math.min(W - 1, x1 + pad); if (!HALF.has(name)) y1 = Math.min(H - 1, y1 + pad);
   const cw = (x1 - x0 + 1) & ~1, ch = (y1 - y0 + 1) & ~1;
   const out = path.join(OUT, `tiger-${name}.png`);
   execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-i', '-',
@@ -147,6 +165,30 @@ async function edit(name) {
   const raw = path.join(TMP, `tiger-${name}-raw.png`);
   fs.writeFileSync(raw, Buffer.from(await (await fetch(url)).arrayBuffer()));
   return {raw, out: key(raw, name)};
+}
+
+/*
+ * 从一张已经透明的 PNG 切齐边：node tiger.mjs --cut <源> <名字>
+ *   原来那只捧着手的：--cut assets/today/today-tiger.png default
+ *   （详情页还用原图——那里它不贴着底，齐边浮在半空反而怪）
+ */
+if (process.argv[2] === '--cut') {
+  // 第三个参数：再往上多切几成。围巾那只的渐隐垫在绿底上变成了黄绿色、是不透明的，
+  // 比例判断认不出来，只能按眼睛量的多切一截
+  const [src, name, more = '0'] = process.argv.slice(3);
+  const [W, H] = sizeOf(src);
+  const px = execFileSync(FFMPEG, ['-loglevel', 'error', '-i', src, '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'], {maxBuffer: 1 << 28});
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+    if (px[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  y1 = solidBottom(px, W, x0, x1, y0, y1);
+  y1 -= Math.round((y1 - y0) * Number(more));
+  const cw = (x1 - x0 + 1) & ~1, ch = (y1 - y0 + 1) & ~1;
+  const out = path.join(OUT, `tiger-${name}.png`);
+  execFileSync(FFMPEG, ['-loglevel', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-i', '-',
+    '-vf', `crop=${cw}:${ch}:${x0}:${y0},scale=-2:'min(420,ih)':flags=lanczos,format=rgba`, '-frames:v', '1', out], {input: px});
+  console.log(name, '→', out);
+  process.exit(0);
 }
 
 if (process.argv[2] === '--rekey') {
