@@ -402,6 +402,12 @@
   .ghost{flex:0 0 auto;border:0;background:transparent;color:var(--soft);font:inherit;font-size:15px;padding:10px 6px}
   .err{margin:6px 20px 0;font-size:14px;color:#B3261E}
   [hidden]{display:none !important}
+  /* 家人头像：和电视上同一套。图挂了就退回 emoji，不留破图标。 */
+  .famFace{width:24px;height:24px;border-radius:50%;border:2px solid;object-fit:cover;
+    vertical-align:middle;background:#fff;flex:none}
+  .famLine{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+  .famLine span{display:inline-flex;align-items:center;gap:5px}
+  .who .n{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
@@ -992,6 +998,16 @@ async function loadFamily() {
   } catch { return []; }
 }
 
+/* 一个人的小头像。图取不到就换成 emoji——这块屏是不是「我家」，就看这一行。 */
+function face(p){
+  if (!p.avatar) return document.createTextNode(p.icon ?? '');
+  const i = document.createElement('img');
+  i.className = 'famFace'; i.src = `/art/avatar-${p.avatar}.jpg`; i.alt = '';
+  i.style.borderColor = p.color || 'transparent';
+  i.onerror = () => i.replaceWith(document.createTextNode(p.icon ?? ''));
+  return i;
+}
+
 let famBox = null;   // My 面板打开时指到它里面那块
 
 async function drawFamily() {
@@ -1004,7 +1020,9 @@ async function drawFamily() {
     if (famEditing === p.id) { box.appendChild(personForm(p)); continue; }
     const row = el('who');
     const n = el('n');
-    n.textContent = `${p.icon ?? ''} ${p.en ? `${p.name} · ${p.en}` : p.name}`.trim();
+    const nm = document.createElement('span');
+    nm.textContent = p.en ? `${p.name} · ${p.en}` : p.name;
+    n.append(face(p), nm);
     const bits = [p.rel, p.age, p.they].filter(Boolean);
     const d = el('d'); d.textContent = bits.join(' · ') || X.fBlank;
     row.append(n, d);
@@ -1123,9 +1141,17 @@ $('menu').onclick = async () => {
   // 抽屉上直接摆出来：👩 Elodie · 👶 Coco · 🐶 Nana
   // 不用打开就看得见——这块屏是不是「我家」，差别就在这一行。
   loadFamily().then(ps => {
-    $('myS').textContent = ps.length
-      ? ps.map(p => `${p.icon ?? ''} ${p.name}`).join('   ')
-      : X.myS;
+    const line = $('myS');
+    line.textContent = '';
+    if (ps.length) {
+      const box = document.createElement('span'); box.className = 'famLine';
+      ps.forEach(p => {
+        const one = document.createElement('span');
+        const nm = document.createElement('span'); nm.textContent = p.name;
+        one.append(face(p), nm); box.append(one);
+      });
+      line.append(box);
+    } else line.textContent = X.myS;
     $('myS').classList.toggle('faces', ps.length > 0);
   });
   $('tvT').textContent = X.tvT;  $('tvS').textContent = X.tvS;

@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
-  Animated, findNodeHandle, Pressable, StyleSheet, Text, View,
+  Animated, findNodeHandle, Image, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import {palettes, type Daypart, type, space} from './theme';
 
@@ -19,6 +19,8 @@ type Props = {
   hasMore?: boolean;
   /** 不画勾选框。在推的事按中间键是进详情，不是打勾，框会骗人。 */
   noTick?: boolean;
+  /** 这件事说的是家里哪一位。挂一个小头像，不用读字就知道是谁的。 */
+  who?: {uri: string; color: string; name: string};
 };
 
 /**
@@ -39,6 +41,7 @@ export function TaskRow({
   onFocusIn,
   hasMore,
   noTick,
+  who,
 }: Props) {
   const p = palettes[daypart];
   const [focused, setFocused] = useState(false);
@@ -138,6 +141,14 @@ export function TaskRow({
           ) : null}
         </View>
 
+        {who ? (
+          <Image
+            source={{uri: who.uri}}
+            accessibilityLabel={who.name}
+            style={[s.who, {borderColor: who.color}]}
+          />
+        ) : null}
+
         {/* 只在聚焦时浮出来。告诉她这一行还能往里按，
             而且不用写一行说明——箭头自己会说。 */}
         {focused && hasMore ? (
@@ -171,6 +182,7 @@ const s = StyleSheet.create({
   into: {fontSize: 30, lineHeight: 30, marginLeft: space.sm, fontWeight: '300'},
   tick: {color: '#FFFFFF', fontSize: 16, fontWeight: '700', lineHeight: 18},
   textCol: {flex: 1},
+  who: {width: 32, height: 32, borderRadius: 16, borderWidth: 2, marginLeft: space.md},
   label: {fontSize: type.task, fontWeight: '500', letterSpacing: 0.2},
   note: {fontSize: type.meta, marginTop: 4},
 });

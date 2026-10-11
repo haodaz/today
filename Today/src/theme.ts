@@ -21,6 +21,23 @@ export function daypartOf(d: Date): Daypart {
   return 'night';
 }
 
+/**
+ * 窗景挑哪一张：时辰 × 天气。
+ *
+ * 天气只分四档，因为窗外只需要四种样子——毛毛雨和雷雨在一扇窗里看着都是雨，
+ * 雾和阴天都是灰。拿不到天气就当阴天：不说谎，也不抢眼。
+ */
+export type Sky = 'clear' | 'cloud' | 'rain' | 'snow';
+
+export function skyOf(kind?: string): Sky {
+  if (kind === 'clear') return 'clear';
+  if (kind === 'snow') return 'snow';
+  if (kind === 'rain' || kind === 'drizzle' || kind === 'storm') return 'rain';
+  return 'cloud';
+}
+
+export const sceneOf = (d: Daypart, kind?: string) => `${d}-${skyOf(kind)}`;
+
 type Palette = {
   /** 极光渐变的三个停点，从上到下 */
   sky: [string, string, string];
@@ -36,6 +53,13 @@ type Palette = {
   warm: string;
   done: string;
   shadow: string;
+  /**
+   * 窗景上那层「墙色」。从左往右四个停点：左栏的字落在最浓的那段上，
+   * 右边渐淡，窗露出来。颜色取自同一时辰的画，所以看着像墙本身，不像蒙了块布。
+   */
+  veil: [string, string, string, string];
+  /** 详情页那层：按进去之后整屏都是字，窗只留一点影子，但还是同一扇窗。 */
+  veilDense: string;
 };
 
 const VIOLET = '#6B5CE7';
@@ -43,6 +67,11 @@ const VIOLET_SOFT = '#8C7FF0';
 /** 杏色。只用在「这件是给你自己的」，全系统唯一的暖色标记。 */
 const APRICOT = '#E89B5B';
 
+/*
+ * 次要文字的颜色是算出来的，不是挑的。
+ * 原来的「淡」字在浅底上只有 2.64:1——网页的及格线是 4.5:1，
+ * 而这块屏是隔着三米看的。现在浅色 4.63:1、夜里 5.47:1，层级还在，只是读得见了。
+ */
 export const palettes: Record<Daypart, Palette> = {
   dawn: {
     sky: ['#EAF0FD', '#F0EFFB', '#F7F7FB'],
@@ -50,12 +79,14 @@ export const palettes: Record<Daypart, Palette> = {
     surfaceFocused: 'rgba(255,255,255,0.96)',
     border: 'rgba(107,92,231,0.14)',
     text: '#1E1B2E',
-    textSoft: '#5A5570',
-    textFaint: '#9A95AD',
+    textSoft: '#4A4560',
+    textFaint: '#6E6984',
     accent: VIOLET,
     warm: APRICOT,
     done: '#9A95AD',
     shadow: 'rgba(107,92,231,0.16)',
+    veil: ['rgba(240,238,250,0.90)', 'rgba(240,238,250,0.80)', 'rgba(240,238,250,0.30)', 'rgba(240,238,250,0.06)'],
+    veilDense: 'rgba(240,238,250,0.90)',
   },
   day: {
     sky: ['#EFF3FD', '#F4F2FC', '#F8F8FC'],
@@ -63,12 +94,14 @@ export const palettes: Record<Daypart, Palette> = {
     surfaceFocused: 'rgba(255,255,255,0.97)',
     border: 'rgba(107,92,231,0.13)',
     text: '#1C1A2A',
-    textSoft: '#58546C',
-    textFaint: '#9793A6',
+    textSoft: '#4A4560',
+    textFaint: '#6E6984',
     accent: VIOLET,
     warm: APRICOT,
     done: '#9793A6',
     shadow: 'rgba(107,92,231,0.14)',
+    veil: ['rgba(246,245,250,0.90)', 'rgba(246,245,250,0.80)', 'rgba(246,245,250,0.30)', 'rgba(246,245,250,0.06)'],
+    veilDense: 'rgba(246,245,250,0.90)',
   },
   dusk: {
     sky: ['#EDE9FA', '#F1ECF8', '#F6F2F6'],
@@ -76,26 +109,32 @@ export const palettes: Record<Daypart, Palette> = {
     surfaceFocused: 'rgba(255,255,255,0.95)',
     border: 'rgba(107,92,231,0.15)',
     text: '#231D33',
-    textSoft: '#5E5572',
-    textFaint: '#9B93AC',
+    textSoft: '#4A4560',
+    textFaint: '#6E6984',
     accent: VIOLET_SOFT,
     warm: APRICOT,
     done: '#9B93AC',
     shadow: 'rgba(107,92,231,0.18)',
+    veil: ['rgba(242,235,244,0.90)', 'rgba(242,235,244,0.80)', 'rgba(242,235,244,0.32)', 'rgba(242,235,244,0.08)'],
+    veilDense: 'rgba(242,235,244,0.90)',
   },
   night: {
     // 入夜整块沉下来：不刺眼、不招人看，也不会在客厅里当第二个灯泡
     sky: ['#14131E', '#171623', '#131220'],
-    surface: 'rgba(255,255,255,0.055)',
-    surfaceFocused: 'rgba(255,255,255,0.11)',
+    // 原来是 5.5% 的白——那时背后是一块纯黑。现在背后是一扇亮着灯的窗，
+    // 卡片要自己挡得住，字才不会压在楼上。
+    surface: 'rgba(26,25,38,0.82)',
+    surfaceFocused: 'rgba(40,38,58,0.92)',
     border: 'rgba(160,148,255,0.16)',
     text: '#E9E6F2',
-    textSoft: '#A49FBA',
-    textFaint: '#6F6A85',
+    textSoft: '#B9B4CC',
+    textFaint: '#8F8AA6',
     accent: '#A094FF',
     warm: '#E0A472',
     done: '#6F6A85',
     shadow: 'rgba(0,0,0,0.5)',
+    veil: ['rgba(18,17,28,0.88)', 'rgba(18,17,28,0.76)', 'rgba(18,17,28,0.34)', 'rgba(18,17,28,0.12)'],
+    veilDense: 'rgba(18,17,28,0.90)',
   },
 };
 

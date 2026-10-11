@@ -216,14 +216,54 @@ export function render(store, zh, now = new Date()) {
   return head + '\n' + lines.join('\n');
 }
 
+/**
+ * 每个家人一个颜色。
+ *
+ * 杏色不在里面——那是「这件是给你自己的」的专用色，全系统只有它是暖的；
+ * 紫色也不在——那是聚焦和按钮。按在档案里的顺序分，顺序不变颜色就不变。
+ */
+const COLORS = ['#5B8DEF', '#E0719B', '#3FAE95', '#8AAE3B', '#A86BC8', '#6F8BA4'];
+export const colorOf = i => COLORS[((i % COLORS.length) + COLORS.length) % COLORS.length];
+
+/**
+ * 用哪张头像。
+ *
+ * 这是一套按角色和年龄的通用形象，不是谁的画像：不生成任何真人的脸，
+ * 也不靠名字猜性别。两个妈妈就是 mum1 和 mum2，孩子按岁数换形象——
+ * 存的是生日，所以头像会跟着孩子一起长大。
+ */
+export function avatarOf(p, list = [], now = new Date()) {
+  const nth = role => list.filter(q => q.role === role).indexOf(p) + 1;
+  const mo = monthsOld(p.born, now);
+  // 孩子的形象按她填的称呼选（she / he），没填就用中性那张。
+  // 只看这个字段，不看名字——名字猜性别，十次里总有一次叫错一个孩子。
+  const t = String(p.they ?? '').trim().toLowerCase();
+  const sfx = t.startsWith('she') ? '-she' : t.startsWith('he') ? '-he' : '';
+  const byAge = () =>
+    mo == null ? 'child' + sfx : mo < 24 ? 'baby' : mo < 72 ? 'toddler' + sfx : mo < 156 ? 'child' + sfx : 'teen' + sfx;
+  switch (p.role) {
+    case 'mum': return nth('mum') > 1 ? 'mum2' : 'mum1';
+    case 'dad': return nth('dad') > 1 ? 'dad2' : 'dad1';
+    case 'baby': return mo != null && mo >= 24 ? byAge() : 'baby';
+    case 'kid': return byAge();
+    case 'gran': return 'gran';
+    case 'dog': return 'dog';
+    case 'cat': return 'cat';
+    default: return 'adult';
+  }
+}
+
 /** 给界面看的：原样给出去，年龄另算一份。 */
 export function forDisplay(store, zh = true, now = new Date()) {
-  return (store?.people ?? []).map(p => {
+  const list = store?.people ?? [];
+  return list.map((p, i) => {
     const mo = monthsOld(p.born, now);
     return {
       ...p,
       age: ageText(p.born, zh, now),
       icon: iconOf(p.role),
+      avatar: avatarOf(p, list, now),
+      color: colorOf(i),
       // 界面要分开处理：生日是她填的，岁数是算出来的。
       // 估出来的年份不能回填到生日栏里让她去确认。
       ageNum: mo == null ? null : Math.floor(mo / 12),

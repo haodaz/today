@@ -29,6 +29,8 @@ export type DetailPayload = {
 };
 
 type Props = {
+  /** 首页那扇窗的地址。按进去还是同一扇窗。拿不到就是纯色底。 */
+  art?: string;
   payload: DetailPayload | null;
   daypart: Daypart;
   lang: Lang;
@@ -78,7 +80,7 @@ const T = {
  *
  * 全屏不是因为内容多，是因为三米外看。半屏的字到沙发上就没了。
  */
-export function Detail({payload, daypart, lang, onClose}: Props) {
+export function Detail({payload, daypart, lang, onClose, art}: Props) {
   const p = palettes[daypart];
   const x = T[lang];
   if (!payload) return null;
@@ -92,6 +94,13 @@ export function Detail({payload, daypart, lang, onClose}: Props) {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={[s.root, {backgroundColor: p.sky[1]}]}>
+        {/* 按进去还是同一扇窗——前后不像两个 app。墙色浓一些，因为这一层全是字。 */}
+        {art ? (
+          <>
+            <Image source={{uri: art}} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <View style={[StyleSheet.absoluteFill, {backgroundColor: p.veilDense}]} />
+          </>
+        ) : null}
         <View style={s.page}>
           {/* 左：这是什么事，以及它在你这儿放了多久 */}
           <View style={s.left}>

@@ -1,0 +1,59 @@
+{
+  "model": "wan2.2-t2i-flash",
+  "size": "1440*810",
+  "seed": 20261012,
+  "negative": "text, letters, words, signage, watermark, logo, people, person, face, hands, animals, clutter, busy pattern, wall art, picture frames, shelves on the left, harsh contrast, oversaturated, low quality, blurry window frame",
+  "room": "Soft 3D render in a warm Pixar-like style of a cozy Brooklyn apartment living room. Composition: one large window on the right third of the frame looking out over brownstone rooftops; the left two thirds of the frame is a plain, empty, softly lit painted wall with nothing on it. A wooden windowsill with three small potted plants. Calm, gentle, uncluttered, soft shadows, shallow depth of field.",
+  "scenes": {
+    "dawn-clear": "Early dawn: pale pink and soft blue sky, first light, cool and quiet, the wall in soft lilac morning light.",
+    "dawn-cloud": "Early dawn under soft grey clouds: diffuse pearl light, cool and quiet, the wall a pale grey-lilac. Soft diffuse overcast light only: no direct sunlight, no sunbeams, no hard light shapes or window shadows on the wall.",
+    "dawn-rain": "Early dawn on a rainy morning: raindrops on the window glass, grey-blue light, a yellow umbrella leaning against the wall right beside the window frame, cool and quiet. Soft diffuse overcast light only: no direct sunlight, no sunbeams, no hard light shapes or window shadows on the wall.",
+    "dawn-snow": "Early dawn with gentle snow falling outside, snow on the rooftops, pale blue light, a knitted scarf draped on the windowsill, cool and quiet. Soft diffuse overcast light only: no direct sunlight, no sunbeams, no hard light shapes or window shadows on the wall.",
+    "day-clear": "Bright clear midday: clean blue sky, fresh daylight, the wall a light warm white, airy and calm.",
+    "day-cloud": "Overcast midday: soft white clouds, even diffuse light, the wall a light neutral grey-white, calm. Soft diffuse overcast light only: no direct sunlight, no sunbeams, no hard light shapes or window shadows on the wall.",
+    "day-rain": "Heavy grey overcast rain outside, rain streaking the glass. The room is lit only by flat, dim, grey daylight: the whole wall is evenly and softly lit in one smooth tone, like a cloudy afternoon, with no light patches anywhere. A yellow umbrella leaning against the wall right beside the window frame. Calm.",
+    "day-snow": "Snowy midday: snow falling softly, white rooftops, bright cool light, a knitted scarf draped on the windowsill, calm. Soft diffuse overcast light only: no direct sunlight, no sunbeams, no hard light shapes or window shadows on the wall.",
+    "dusk-clear": "Golden hour at dusk: warm amber and violet sky, long soft light on the wall, a small lamp on the windowsill just switched on, calm.",
+    "dusk-cloud": "Cloudy dusk: muted violet and rose clouds, the wall in soft dim purple light, a small lamp on the windowsill just switched on, calm.",
+    "dusk-rain": "Rainy dusk: rain on the glass catching warm streetlight, deep blue-violet light, a yellow umbrella leaning against the wall right beside the window frame, a small lamp on the windowsill glowing, calm.",
+    "dusk-snow": "Snowy dusk: snow falling in violet evening light, warm windows in the buildings opposite, a small lamp on the windowsill glowing, a knitted scarf on the sill, calm.",
+    "night-clear": "Quiet night: deep indigo sky with a few stars, a few warm lit windows across the street, the room dim, a small lamp on the windowsill glowing very softly, calm and restful.",
+    "night-cloud": "Quiet overcast night: deep grey-indigo sky, a few warm lit windows across the street, the room dim, a small lamp on the windowsill glowing very softly, restful.",
+    "night-rain": "Rainy night: rain on the glass reflecting warm city lights, the room dim, a yellow umbrella leaning against the wall right beside the window frame, a small lamp on the windowsill glowing very softly, restful.",
+    "night-snow": "Snowy night: snow drifting past streetlights, white rooftops under a dark sky, the room dim, a small lamp on the windowsill glowing very softly, restful."
+  },
+  "avatarSize": "1024*1024",
+  "avatarNegative": "text, letters, watermark, logo, frame, border, multiple people, hands near face, busy background, scenery, dark background, realistic photo, low quality, tiger, tiger stripes, animal costume, mascot",
+  "avatarStyle": "Soft 3D render in a warm Pixar-like style. A head-and-shoulders portrait avatar, facing the viewer, gentle friendly expression, centered with space around the head, plain flat off-white background, soft studio lighting, simple and clean.",
+  "avatars": {
+    "mum1": "A woman in her thirties with shoulder-length brown hair, wearing a soft oatmeal cardigan.",
+    "mum2": "A woman in her thirties with short curly black hair, wearing a cozy green sweater.",
+    "dad1": "A man in his thirties with short dark hair and light stubble, wearing a casual blue shirt.",
+    "dad2": "A man in his thirties with curly hair and round glasses, wearing a knit sweater.",
+    "adult": "A calm adult in their thirties with short neat hair, wearing a soft grey sweater.",
+    "baby": "A happy baby about eight months old in a soft yellow onesie, round cheeks.",
+    "toddler": "A cheerful toddler about three years old in a striped top.",
+    "child": "A cheerful child about nine years old in a red hoodie.",
+    "teen": "A teenager about fifteen years old with a short bob haircut and an androgynous look, a backpack strap over one shoulder, relaxed half smile.",
+    "gran": "A warm grandparent in their seventies with silver hair and reading glasses.",
+    "dog": "A friendly golden-brown family dog, head and shoulders, tongue slightly out.",
+    "cat": "A friendly grey tabby cat, head and shoulders, calm eyes.",
+    "toddler-she": "A cheerful little girl about three years old with short pigtails, in a striped top.",
+    "toddler-he": "A cheerful little boy about three years old with short tousled hair, in a striped top.",
+    "child-she": "A cheerful girl about nine years old with a ponytail, in a red hoodie.",
+    "child-he": "A cheerful boy about nine years old with short hair, in a red hoodie.",
+    "teen-she": "A teenage girl about fifteen years old with long hair tucked behind one ear, a backpack strap over one shoulder, relaxed half smile.",
+    "teen-he": "A teenage boy about fifteen years old with short hair, a backpack strap over one shoulder, relaxed half smile."
+  },
+  "negativeExtra": {
+    "dawn-cloud": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light",
+    "dawn-rain": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light",
+    "dawn-snow": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light",
+    "day-cloud": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light",
+    "day-rain": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light",
+    "day-snow": "sunlight, sunbeams, sun rays, light shafts, sunlit wall, bright patches of light on the wall, cast window shadows, golden light"
+  },
+  "modelOverride": {
+    "day-rain": "wan2.2-t2i-plus"
+  }
+}

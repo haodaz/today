@@ -652,6 +652,20 @@ createServer(async (req, res) => {
   }
 
   /**
+   * 窗景。电视和 /tv 网页版都从这儿取，所以改一张画不用重新打包 APK。
+   * 一天里只会换几次（时辰、天气变了才换），缓存可以放长。
+   */
+  if (url.pathname.startsWith('/art/')) {
+    const name = url.pathname.slice('/art/'.length);
+    const f = join(HERE, 'art', name);
+    if (/^[a-z]+(-[a-z0-9]+){1,2}\.jpg$/.test(name) && existsSync(f)) {
+      res.writeHead(200, {'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=3600'});
+      return res.end(readFileSync(f));
+    }
+    return json(res, 404, {error: 'no such scene'});
+  }
+
+  /**
    * 电视端的网页版。评委大概率没有 Fire TV——一个网址就能看见这块屏。
    * 和 APK 吃的是同一个 /turn，所以两边不会说的不是一回事。
    */
@@ -828,6 +842,11 @@ createServer(async (req, res) => {
       step: (await todayStep(lang)) ?? null,
       projects,
       weather: await weather(),
+      // 家人：电视上一排小头像，卡片上提到谁就挂谁。
+      // 只给界面要的几样——备注、生日这些留在手机的「My」里，大屏不念别人的事。
+      family: Ppl.forDisplay(loadPeople(), lang === 'zh').map(p => ({
+        name: p.en || p.name, role: p.role, avatar: p.avatar, color: p.color,
+      })),
     });
   }
 

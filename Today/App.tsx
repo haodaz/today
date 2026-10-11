@@ -8,7 +8,7 @@ import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
 import {Detail, type DetailPayload} from './src/Detail';
-import {daypartOf, palettes, safe, space, type} from './src/theme';
+import {daypartOf, palettes, safe, sceneOf, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
 import {hint as wxHint, line as wxLine} from './src/agent/weather';
 import type {Card, Turn} from './src/agent/types';
@@ -186,6 +186,30 @@ export default function App() {
   const daypart = daypartOf(now);
   const p = palettes[daypart];
 
+  /**
+   * 窗景。从服务端取，这样换画不用重新打包。
+   * 取不到（服务端没这张、网断了）就记下这个地址不再试，退回底下那层渐变——
+   * 一块屏宁可朴素，也不能留一个破图标在客厅里。
+   */
+  const artUrl = `${api}/art/${sceneOf(daypart, turn.weather?.kind)}.jpg`;
+
+  /**
+   * 这一行说的是谁。只认名字——「Sign Stelle's conference form」里有 Stelle，就是她。
+   * 「给你自己的」那种不挂头像：那件已经有杏色那道边了，再挂一张脸是重复。
+   * 不猜：名字没出现就不挂，宁可空着也不挂错人。
+   */
+  const family = turn.family ?? [];
+  const whoIn = (label: string) => {
+    const hit = family.find(f =>
+      new RegExp(`\\b${f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(label),
+    );
+    return hit
+      ? {uri: `${api}/art/avatar-${hit.avatar}.jpg`, color: hit.color, name: hit.name}
+      : undefined;
+  };
+  const [artBad, setArtBad] = useState<string | null>(null);
+  const showArt = artBad !== artUrl;
+
   const tasks = turn.cards.find(c => c.type === 'tasks');
   const later = turn.cards.find(c => c.type === 'later');
   const memory = turn.cards.find(c => c.type === 'memory');
@@ -235,6 +259,21 @@ export default function App() {
     return all.filter(l => !shown.has(String(l).trim().toLowerCase()));
   })();
 
+  /** 家里人那一排。标题行右边，不占额外高度；垫一块底，压在窗框上也读得清。 */
+  const faces = family.length ? (
+    <View style={[s.faces, {backgroundColor: p.surface, borderColor: p.border}]}>
+      {family.slice(0, 6).map(f => (
+        <View key={f.name} style={s.fam}>
+          <Image
+            source={{uri: `${api}/art/avatar-${f.avatar}.jpg`}}
+            style={[s.face, {borderColor: f.color}]}
+          />
+          <Text style={[s.famName, {color: p.textSoft}]}>{f.name}</Text>
+        </View>
+      ))}
+    </View>
+  ) : null;
+
   const toggle = async (id: string) => {
     // 先改本地，让按下去是即时的；再回写
     setTurn(cur => ({
@@ -268,6 +307,26 @@ export default function App() {
       start={{x: 0.15, y: 0}}
       end={{x: 0.85, y: 1}}
       style={s.root}>
+      {showArt ? (
+        <>
+          <Image
+            source={{uri: artUrl}}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            onError={() => setArtBad(artUrl)}
+          />
+          {/* 墙色。左栏的字全落在最浓的那段上，三米外也读得清；
+              往右渐淡，窗露出来——卡片底下透着的是窗外。 */}
+          <LinearGradient
+            colors={p.veil}
+            locations={[0, 0.36, 0.62, 1]}
+            start={{x: 0, y: 0.5}}
+            end={{x: 1, y: 0.5}}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        </>
+      ) : null}
       <SafeAreaView style={s.root}>
       <StatusBar hidden />
       <View style={s.page}>
@@ -372,6 +431,7 @@ export default function App() {
             <>
               <View style={s.cardHead}>
                 <Text style={[s.section, {color: p.textSoft}]}>{x.today}</Text>
+                {faces}
                 <Text style={[s.count, {color: p.textFaint}]}>
                   {left === 0 ? x.allDone : x.leftN(left)}
                 </Text>
@@ -391,12 +451,13 @@ export default function App() {
                     setFocus(detailFor(task.label, task.note, task.forHer))
                   }
                   hasMore={hasDepth(detailFor(task.label, task.note, task.forHer))}
+                  who={task.forHer ? undefined : whoIn(task.label)}
                 />
               ))}
 
               {/* Today 记着的。她得看得见它记住了什么，才谈得上信任。 */}
               {memory?.type === 'memory' ? (
-                <View style={s.memBlock}>
+                <View style={[s.memBlock, {backgroundColor: p.surface, borderColor: p.border}]}>
                   <Text style={[s.smallHead, {color: p.textFaint}]}>
                     {x.iRemember}
                   </Text>
@@ -423,6 +484,7 @@ export default function App() {
             <>
               <View style={s.cardHead}>
                 <Text style={[s.section, {color: p.textSoft}]}>{x.carrying}</Text>
+                {faces}
               </View>
               {projects.slice(0, 3).map((q, i) => (
                 <TaskRow
@@ -437,9 +499,10 @@ export default function App() {
                   onFocusIn={() => setFocus(detailFor(q.title))}
                   hasMore={hasDepth(detailFor(q.title))}
                   noTick
+                  who={q.forHer ? undefined : whoIn(q.title)}
                 />
               ))}
-              <View style={s.tuck}>
+              <View style={[s.tuck, {backgroundColor: p.surface, borderColor: p.border}]}>
                 <View style={[s.qrSmall, {backgroundColor: '#FFFFFF'}]}>
                   <QRCode value={scanUrl} size={76} color="#1C1D1C" backgroundColor="#FFFFFF" />
                 </View>
@@ -472,6 +535,7 @@ export default function App() {
       {/* 按进去的那一层。平时不在，她按右键才铺开。 */}
       <Detail
         payload={open}
+        art={showArt ? artUrl : undefined}
         daypart={daypart}
         lang={lang}
         onClose={() => setOpen(null)}
@@ -522,7 +586,8 @@ const s = StyleSheet.create({
   stepText: {fontSize: type.task, lineHeight: 26, marginTop: 1},
   stepNote: {fontSize: type.meta, marginTop: 3},
   laterBlock: {marginTop: space.sm, paddingBottom: space.xs},
-  memBlock: {marginTop: space.md, paddingHorizontal: space.xs},
+  memBlock: {marginTop: space.md, paddingVertical: space.sm, paddingHorizontal: space.md,
+    borderRadius: 12, borderWidth: 1},
   smallHead: {fontSize: type.meta, marginBottom: space.xs, letterSpacing: 1},
   smallItem: {fontSize: type.meta, lineHeight: 18},
   // 右栏的高度不可控（卡片数 + 记忆条数），居中会上下同时溢出。
@@ -530,11 +595,25 @@ const s = StyleSheet.create({
   right: {flex: 1, justifyContent: 'center', paddingVertical: space.xs},
   cardHead: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: space.md,
     paddingHorizontal: space.xs,
   },
+  faces: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    marginRight: space.md,
+    paddingVertical: 3,
+    paddingLeft: 4,
+    paddingRight: space.md,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  fam: {flexDirection: 'row', alignItems: 'center', marginLeft: space.sm},
+  face: {width: 22, height: 22, borderRadius: 11, borderWidth: 2, marginRight: 4},
+  famName: {fontSize: type.meta},
   section: {fontSize: type.section, fontWeight: '600', letterSpacing: 1},
   count: {fontSize: type.meta},
   footer: {fontSize: type.meta, marginTop: space.md, paddingHorizontal: space.xs},
@@ -542,8 +621,9 @@ const s = StyleSheet.create({
   // 二维码必须有白底和留白才扫得动，哪怕整页背景是暖色或夜间深色
   qrFrame: {padding: space.md, borderRadius: 20},
   // 二维码缩到底下：扫码是一次性动作，不该占着整块屏
+  // 和「我记着的」一样垫一块底：窗台和盆栽就在它后面，字压上去读不出来
   tuck: {flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.md,
-    paddingHorizontal: space.xs},
+    padding: space.sm, paddingRight: space.lg, borderRadius: 16, borderWidth: 1},
   qrSmall: {padding: space.sm, borderRadius: 12},
   scanHint: {fontSize: type.section, marginTop: space.md, textAlign: 'center'},
 });

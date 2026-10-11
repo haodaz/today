@@ -18,18 +18,18 @@
 <style>
   :root{
     --accent:#6B5CE7; --warm:#E89B5B;
-    --text:#1C1A2A; --soft:#58546C; --faint:#9793A6;
+    --text:#1C1A2A; --soft:#4A4560; --faint:#6E6984;
     --surface:rgba(255,255,255,.84); --surfaceOn:rgba(255,255,255,.97);
     --border:rgba(107,92,231,.13); --shadow:rgba(107,92,231,.14);
     --s1:#EFF3FD; --s2:#F4F2FC; --s3:#F8F8FC;
   }
   /* 一天的光线。和 src/theme.ts 里是同一组值——两块屏不该长得不一样。 */
-  body[data-part="dawn"]{--s1:#EAF0FD;--s2:#F0EFFB;--s3:#F7F7FB;--text:#1E1B2E;--soft:#5A5570;--faint:#9A95AD;--border:rgba(107,92,231,.14);--shadow:rgba(107,92,231,.16)}
-  body[data-part="dusk"]{--s1:#EDE9FA;--s2:#F1ECF8;--s3:#F6F2F6;--text:#231D33;--soft:#5E5572;--faint:#9B93AC;--accent:#8C7FF0;--border:rgba(107,92,231,.15);--shadow:rgba(107,92,231,.18)}
+  body[data-part="dawn"]{--s1:#EAF0FD;--s2:#F0EFFB;--s3:#F7F7FB;--text:#1E1B2E;--soft:#4A4560;--faint:#6E6984;--border:rgba(107,92,231,.14);--shadow:rgba(107,92,231,.16)}
+  body[data-part="dusk"]{--s1:#EDE9FA;--s2:#F1ECF8;--s3:#F6F2F6;--text:#231D33;--soft:#4A4560;--faint:#6E6984;--accent:#8C7FF0;--border:rgba(107,92,231,.15);--shadow:rgba(107,92,231,.18)}
   body[data-part="night"]{
     --s1:#14131E;--s2:#171623;--s3:#131220;
-    --text:#E9E6F2;--soft:#A49FBA;--faint:#6F6A85;--accent:#A094FF;--warm:#E0A472;
-    --surface:rgba(255,255,255,.055);--surfaceOn:rgba(255,255,255,.11);
+    --text:#E9E6F2;--soft:#B9B4CC;--faint:#8F8AA6;--accent:#A094FF;--warm:#E0A472;
+    --surface:rgba(26,25,38,.82);--surfaceOn:rgba(40,38,58,.92);
     --border:rgba(160,148,255,.16);--shadow:rgba(0,0,0,.5);
   }
   *{box-sizing:border-box}
@@ -41,11 +41,14 @@
     transition:background .8s linear, color .4s;
     -webkit-font-smoothing:antialiased;
   }
-  /* 固定 1920×1080，整体缩放。看到的永远是一台电视的比例。
+  /* 固定 960×540（dp），整体缩放。看到的永远是一台电视的比例。
+     所有尺寸都是按电视的 dp 写的——Fire TV 渲染 1920×1080、density 320，
+     可用正好是 960×540 dp。以前画布写成了 1920×1080 像素，
+     于是网页版整个只有真电视的一半大，右下大片空着。
      缩放不改变布局占位，所以不能靠 flex/grid 居中——那是按未缩放的
      尺寸算的，盒子会被推出屏幕。绝对定位 + translate 自己居中。 */
   #tv{
-    width:1920px;height:1080px;position:absolute;
+    width:960px;height:540px;position:absolute;
     left:50%;top:50%;transform-origin:center;
   }
   .page{position:absolute;inset:0;display:flex;padding:30px 44px;gap:20px}
@@ -79,7 +82,7 @@
   .laterItem.can{cursor:pointer}
   .laterItem.on{color:var(--accent)}
 
-  .cardHead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;padding:0 5px}
+  .cardHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;padding:0 5px}
   .section{font-size:13px;font-weight:600;letter-spacing:1px;color:var(--soft)}
   .count{font-size:12px;color:var(--faint)}
   .row{
@@ -100,7 +103,8 @@
   .label.done{text-decoration:line-through;color:var(--faint);font-weight:400}
   .note{font-size:12px;color:var(--faint);margin-top:2px}
   .into{margin-left:auto;font-size:30px;font-weight:300;color:var(--accent)}
-  .memBlock{margin-top:13px;padding:0 5px}
+  .memBlock{margin-top:13px;padding:9px 13px;border-radius:12px;
+    background:var(--surface);border:1px solid var(--border)}
   .memItem{font-size:12px;line-height:18px;color:var(--faint)}
 
   /* 按进去的那一层 */
@@ -125,15 +129,46 @@
   .optNote{font-size:12px;line-height:17px;color:var(--faint);margin-top:2px}
   .struck{text-decoration:line-through}
 
+  /* 给评委的操作说明。网页版没有遥控器，这一行是唯一告诉人「能按进去」的地方，
+     压在窗景上看不见就等于没写——所以垫一块底。 */
   .hint{
-    position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
-    font-size:12px;color:var(--faint);opacity:.65;letter-spacing:.3px
+    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    font-size:15px;color:var(--soft);letter-spacing:.3px;
+    padding:6px 16px;border-radius:999px;
+    background:var(--surface);border:1px solid var(--border);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:3
   }
+
+  /* 窗景 + 墙色。和 App.tsx 同一套：画从 /art/ 取，取不到就只剩底下那层渐变。 */
+  body{--v0:rgba(246,245,250,.90);--v1:rgba(246,245,250,.80);--v2:rgba(246,245,250,.30);--v3:rgba(246,245,250,.06)}
+  body[data-part="dawn"]{--v0:rgba(240,238,250,.90);--v1:rgba(240,238,250,.80);--v2:rgba(240,238,250,.30);--v3:rgba(240,238,250,.06)}
+  body[data-part="dusk"]{--v0:rgba(242,235,244,.90);--v1:rgba(242,235,244,.80);--v2:rgba(242,235,244,.32);--v3:rgba(242,235,244,.08)}
+  body[data-part="night"]{--v0:rgba(18,17,28,.88);--v1:rgba(18,17,28,.76);--v2:rgba(18,17,28,.34);--v3:rgba(18,17,28,.12)}
+  #art,#veil{position:absolute;inset:0;opacity:0;transition:opacity .9s ease}
+  #art{background-size:cover;background-position:center}
+  #veil{pointer-events:none;
+    background:linear-gradient(90deg,var(--v0) 0%,var(--v1) 36%,var(--v2) 62%,var(--v3) 100%)}
+  #tv.art #art,#tv.art #veil{opacity:1}
+  /* 家里人。标题那一行右边一排，卡片上提到谁就挂谁——和 App.tsx 同一套。 */
+  .faces{display:flex;align-items:center;gap:10px;margin-left:auto;margin-right:12px;
+    padding:4px 12px 4px 5px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+  .fam{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--soft)}
+  .face{width:24px;height:24px;border-radius:50%;border:2px solid;object-fit:cover;background:#fff}
+  .who{width:32px;height:32px;border-radius:50%;border:2px solid;object-fit:cover;margin-left:13px;flex:none;background:#fff}
+  #main{position:relative;z-index:1}
+  #detail{z-index:2}
+  /* 按进去还是同一扇窗——前后不像两个 app。墙色浓一些，因为这一层全是字。 */
+  #tv.art #detail{background:var(--vd)}
+  body{--vd:rgba(246,245,250,.90)}
+  body[data-part="dawn"]{--vd:rgba(240,238,250,.90)}
+  body[data-part="dusk"]{--vd:rgba(242,235,244,.90)}
+  body[data-part="night"]{--vd:rgba(18,17,28,.90)}
 </style>
 </head>
 <body data-part="day">
 
 <div id="tv">
+  <div id="art"></div><div id="veil"></div>
   <div class="page" id="main">
     <div class="left">
       <div class="clock" id="clock"></div>
@@ -213,13 +248,37 @@ const X = () => T[lang];
 
 /* 窗口多大都按 16:9 缩放。看到的要是一台电视，不是一个会变形的网页。 */
 function fit(){
-  const k = Math.min(innerWidth/1920, innerHeight/1080);
+  const k = Math.min(innerWidth/960, innerHeight/540);
   $('tv').style.transform = `translate(-50%,-50%) scale(${k})`;
 }
 addEventListener('resize', fit); fit();
 
-const part = h => h>=5&&h<9 ? 'dawn' : h>=9&&h<16 ? 'day' : h>=16&&h<20 ? 'dusk' : 'night';
+/* ?part=night&sky=snow：直接看某个时辰、某种天气下的那扇窗。
+   拍画廊、录演示用；评委也可以自己翻着看十六种窗是什么样。不带参数就跟着真时间走。 */
+const Q = new URLSearchParams(location.search);
+const PARTS = ['dawn','day','dusk','night'], SKIES = ['clear','cloud','rain','snow'];
+const forcePart = PARTS.includes(Q.get('part')) ? Q.get('part') : null;
+const forceSky  = SKIES.includes(Q.get('sky'))  ? Q.get('sky')  : null;
+const part = h => forcePart || (h>=5&&h<9 ? 'dawn' : h>=9&&h<16 ? 'day' : h>=16&&h<20 ? 'dusk' : 'night');
 const two = n => String(n).padStart(2,'0');
+
+/* 窗景挑哪一张：时辰 × 天气。和 src/theme.ts 的 sceneOf 一模一样。 */
+const skyOf = k => k==='clear' ? 'clear' : k==='snow' ? 'snow'
+  : (k==='rain'||k==='drizzle'||k==='storm') ? 'rain' : 'cloud';
+let artShown = '', artBad = new Set();
+function art(){
+  const name = `${part(new Date().getHours())}-${forceSky || skyOf(turn && turn.weather && turn.weather.kind)}`;
+  if (name === artShown || artBad.has(name)) return;
+  // 先在后台加载完再换，换的时候淡入——不让一块屏在客厅里闪一下
+  const img = new Image();
+  img.onload = () => {
+    $('art').style.backgroundImage = `url(/art/${name}.jpg)`;
+    $('tv').classList.add('art');
+    artShown = name;
+  };
+  img.onerror = () => { artBad.add(name); if (!artShown) $('tv').classList.remove('art'); };
+  img.src = `/art/${name}.jpg`;
+}
 
 function clock(){
   const d = new Date();
@@ -231,6 +290,7 @@ function clock(){
     ? `${d.getMonth()+1} 月 ${d.getDate()} 日 · ${wd}`
     : `${['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]} ${d.getDate()} · ${wd}`;
   document.body.dataset.part = part(d.getHours());
+  art();
 }
 
 /* 天气那一句。和 src/agent/weather.js 同一套判断——两块屏不该说得不一样。 */
@@ -295,9 +355,32 @@ function targets(){
   return out;
 }
 
+/* 这一行说的是谁。只认名字，不猜；「给你自己的」不挂（那件已经有杏色边了）。 */
+const esc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function whoIn(label){
+  return (turn.family||[]).find(f => new RegExp(`\\b${esc(f.name)}\\b`,'i').test(label));
+}
+function faceImg(f, cls){
+  const i = document.createElement('img');
+  i.className = cls; i.src = `/art/avatar-${f.avatar}.jpg`; i.alt = f.name;
+  i.style.borderColor = f.color;
+  i.onerror = () => i.remove();
+  return i;
+}
+function faces(){
+  const box = document.createElement('div'); box.className = 'faces';
+  (turn.family||[]).slice(0,6).forEach(f=>{
+    const w = document.createElement('div'); w.className='fam';
+    const n = document.createElement('span'); n.textContent = f.name;
+    w.append(faceImg(f,'face'), n); box.append(w);
+  });
+  return box;
+}
+
 function draw(){
   const el = (c,t='div')=>{const e=document.createElement(t);e.className=c;return e;};
   $('say').textContent = glance(turn.say) || X().empty;
+  art();
 
   const w = wxText(turn.weather);
   $('wx').innerHTML = '';
@@ -331,7 +414,7 @@ function draw(){
   const carry = !items.length ? (turn.projects||[]).slice(0,3) : [];
   if (carry.length){
     const head = el('cardHead');
-    const s1 = el('section'); s1.textContent = X().carrying; head.append(s1);
+    const s1 = el('section'); s1.textContent = X().carrying; head.append(s1, faces());
     $('right').append(head);
     carry.forEach((q,i)=>{
       const row = el('row'+(i===picked?' on':''));
@@ -341,6 +424,7 @@ function draw(){
       const nx = (q.steps||[]).find(st=>!st.done)?.text || q.asked;
       if (nx){ const n=el('note'); n.textContent=nx; col.append(n); }
       row.append(col);
+      { const f = !q.forHer && whoIn(q.title); if (f) row.append(faceImg(f,'who')); }
       if (i===picked && deep(q)){ const c=el('into'); c.textContent='\u203a'; row.append(c); }
       row.onclick = ()=>{ picked=i; if (deep(q)) show(all[i]); else draw(); };
       $('right').append(row);
@@ -351,7 +435,7 @@ function draw(){
     const head = el('cardHead');
     const s1 = el('section'); s1.textContent = X().today;
     const s2 = el('count'); s2.textContent = left===0 ? X().allDone : X().left(left);
-    head.append(s1,s2); $('right').append(head);
+    head.append(s1, faces(), s2); $('right').append(head);
     items.forEach((t,i)=>{
       const idx = i;
       const row = el('row'+(idx===picked?' on':''));
@@ -361,6 +445,7 @@ function draw(){
       const lab = el('label'+(t.done?' done':'')); lab.textContent = t.label; col.append(lab);
       if (t.note){ const n = el('note'); n.textContent = t.note; col.append(n); }
       row.append(col);
+      { const f = !t.forHer && whoIn(t.label); if (f) row.append(faceImg(f,'who')); }
       if (idx===picked && all[idx]?.can){ const c = el('into'); c.textContent='›'; row.append(c); }
       row.onclick = ()=>{ picked = idx; if (all[idx]?.can) show(all[idx]); else draw(); };
       $('right').append(row);
