@@ -8,7 +8,7 @@ import {useKeepAwake} from 'expo-keep-awake';
 import QRCode from 'react-native-qrcode-svg';
 import {TaskRow} from './src/TaskRow';
 import {Detail, type DetailPayload} from './src/Detail';
-import {daypartOf, palettes, safe, sceneOf, space, type} from './src/theme';
+import {daypartOf, palettes, POSE_ASPECT, poseOf, safe, sceneOf, space, type} from './src/theme';
 import {clockOf, dateLineOf, detectLang, t} from './src/i18n';
 import {hint as wxHint, line as wxLine} from './src/agent/weather';
 import type {Card, Turn} from './src/agent/types';
@@ -210,6 +210,12 @@ export default function App() {
   const [artBad, setArtBad] = useState<string | null>(null);
   const showArt = artBad !== artUrl;
 
+  // 老虎跟着窗外换姿势。取不到就是原来那只——它本来就在包里。
+  const pose = poseOf(daypart, turn.weather?.kind);
+  const poseUrl = pose ? `${api}/art/tiger-${pose}.png` : null;
+  const [poseBad, setPoseBad] = useState<string | null>(null);
+  const usePose = pose && poseUrl && poseBad !== poseUrl ? pose : null;
+
   const tasks = turn.cards.find(c => c.type === 'tasks');
   const later = turn.cards.find(c => c.type === 'later');
   const memory = turn.cards.find(c => c.type === 'memory');
@@ -360,7 +366,12 @@ export default function App() {
           {/* Today 本人。它说的话紧跟在它下面——
               这块屏上最重要的不是清单，是有人在替你记着。 */}
           <View style={s.voice}>
-            <Image source={TIGER} style={s.tiger} resizeMode="contain" />
+            <Image
+              source={usePose ? {uri: poseUrl!} : TIGER}
+              style={[s.tiger, usePose ? {width: Math.round(86 * POSE_ASPECT[usePose])} : null]}
+              resizeMode="contain"
+              onError={() => poseUrl && setPoseBad(poseUrl)}
+            />
             {/* 四行封顶。模型输出的长度不可控，界面不能指望它守规矩——
                 溢出会把下面的内容顶出屏幕。 */}
             {/* 它说的话可能是一整段——她问了个要查的事，那段话是给手机看的，

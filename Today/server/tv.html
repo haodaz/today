@@ -60,7 +60,7 @@
   .wxline{font-size:13px;color:var(--soft);margin-top:5px;letter-spacing:.3px}
   .wxhint{font-size:12px;color:var(--warm);margin-top:1px}
   .rule{height:1px;width:44px;background:var(--border);margin:8px 0}
-  .tiger{width:62px;height:86px;object-fit:contain;margin-bottom:5px}
+  .tiger{width:62px;height:86px;object-fit:contain;object-position:left bottom;margin-bottom:5px}
   .say{font-size:26px;font-weight:300;line-height:34px;margin:0}
 
   .step{margin-top:8px;padding-left:13px;border-left:3px solid var(--accent);border-radius:1px}
@@ -175,7 +175,7 @@
       <div class="date" id="date"></div>
       <div id="wx"></div>
       <div class="rule"></div>
-      <img class="tiger" src="/today-tiger.png" alt="">
+      <img class="tiger" id="tiger" src="/today-tiger.png" alt="">
       <p class="say" id="say"></p>
       <div id="step"></div>
       <div class="laterBlock" id="laterBlock" hidden>
@@ -278,6 +278,21 @@ function art(){
   };
   img.onerror = () => { artBad.add(name); if (!artShown) $('tv').classList.remove('art'); };
   img.src = `/art/${name}.jpg`;
+  tiger();
+}
+
+/* 老虎跟着窗外换姿势：入夜打盹、下雨撑伞、下雪围围巾。和 src/theme.ts 的 poseOf 一样。 */
+const ASPECT = {umbrella:.88, scarf:.78, sleep:.8};
+function tiger(){
+  const p = part(new Date().getHours());
+  const sky = forceSky || skyOf(turn && turn.weather && turn.weather.kind);
+  const pose = p==='night' ? 'sleep' : sky==='rain' ? 'umbrella' : sky==='snow' ? 'scarf' : null;
+  const t = $('tiger');
+  const want = pose ? `/art/tiger-${pose}.png` : '/today-tiger.png';
+  if (t.getAttribute('src') === want) return;
+  t.onerror = () => { t.onerror = null; t.src = '/today-tiger.png'; t.style.width = ''; };
+  t.src = want;
+  t.style.width = pose ? `${Math.round(86*ASPECT[pose])}px` : '';
 }
 
 function clock(){

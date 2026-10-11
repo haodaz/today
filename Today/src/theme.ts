@@ -38,6 +38,24 @@ export function skyOf(kind?: string): Sky {
 
 export const sceneOf = (d: Daypart, kind?: string) => `${d}-${skyOf(kind)}`;
 
+/**
+ * 老虎这会儿是什么样子。
+ *
+ * 入夜它在打盹——这块屏到了晚上本来就该退下去，它也是在说「今天到这儿就行」。
+ * 下雨撑伞、下雪围围巾，和窗外是同一件事。其余时候还是原来那只捧着手的。
+ * 宽高比跟着走，好让每个姿势都靠左站，不在框里飘。
+ */
+export type Pose = 'sleep' | 'umbrella' | 'scarf';
+export const POSE_ASPECT: Record<Pose, number> = {umbrella: 0.88, scarf: 0.78, sleep: 0.8};
+
+export function poseOf(d: Daypart, kind?: string): Pose | null {
+  if (d === 'night') return 'sleep';
+  const sky = skyOf(kind);
+  if (sky === 'rain') return 'umbrella';
+  if (sky === 'snow') return 'scarf';
+  return null;
+}
+
 type Palette = {
   /** 极光渐变的三个停点，从上到下 */
   sky: [string, string, string];

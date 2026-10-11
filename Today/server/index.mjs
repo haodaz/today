@@ -658,8 +658,10 @@ createServer(async (req, res) => {
   if (url.pathname.startsWith('/art/')) {
     const name = url.pathname.slice('/art/'.length);
     const f = join(HERE, 'art', name);
-    if (/^[a-z]+(-[a-z0-9]+){1,2}\.jpg$/.test(name) && existsSync(f)) {
-      res.writeHead(200, {'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=3600'});
+    if (/^[a-z]+(-[a-z0-9]+){1,2}\.(jpg|png)$/.test(name) && existsSync(f)) {
+      // 窗景和头像是 JPEG；老虎要透明背景，是 PNG
+      const type = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      res.writeHead(200, {'Content-Type': type, 'Cache-Control': 'max-age=3600'});
       return res.end(readFileSync(f));
     }
     return json(res, 404, {error: 'no such scene'});
