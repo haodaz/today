@@ -45,9 +45,15 @@ def still(img, sec, name):
 S = os.path.join(V, "stills")
 day = [still(os.path.join(S, f"day_{h}.png"), 3.0, f"day{h}") for h in ("0710", "1230", "1820", "2145")]
 endcard = still(os.path.join(S, "end.png"), 8.0, "end")
+# 封面：没有它，片子第一秒是 Fire TV 桌面，看着像电视自己开机，不像一个 app
+cover = os.path.join(W, "cover.mp4")
+run("-loop", "1", "-t", "3.5", "-i", os.path.join(S, "cover.png"),
+    "-vf", "scale=1920:1080,fps=30,fade=t=in:st=0:d=0.4,fade=t=out:st=3.0:d=0.5,format=yuv420p",
+    "-c:v", "libx264", "-crf", "16", cover)
 
 # ── 分幕。piece = (文件, 入点, 出点, 速度)；narr = [(id, 相对本幕开头的最早起点)] ──
 BEATS = [
+  {"name": "cover", "pieces": [(cover, 0, 3.5, 1)], "narr": []},
   # Fire TV 桌面上正好在放广告——「打开它，它卖你东西」不用演
   # 7.9–12.4 是 app 刚起来、数据还没到的那两秒（整屏二维码），跳过
   {"name": "open", "pieces": [(take("open"), 2.6, 7.9, 0.8), (take("open"), 12.4, 24.0, 1)],
