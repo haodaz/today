@@ -13,8 +13,10 @@ her something or hands her a feed with no end.
 of her day, that she never has to operate.
 
 She says it to her phone, however it comes out — one line, no form. Five seconds
-later the television shows today. She never stands in front of a TV to plan her
-day. That was never the TV's job.
+later the television shows today. Press right on the remote and any item opens.
+Voice or typing on the phone, the D-pad on the TV, one screen that is simply
+there: a single flow across all three. She never stands in front of a TV to plan
+her day. That was never the TV's job.
 
 ## What it actually does
 
@@ -36,11 +38,39 @@ There are no progress bars and no completion counts: the moment you can see
 haircut — the ones that always get bumped. When one has waited too long, Today is
 the one that brings it up. Not to chase her. To say it hasn't forgotten.
 
+## A window, not a dashboard
+
+Every family dashboard we looked at counts chores: rings filling up, *2 of 3*,
+a leaderboard on the fridge. Today refuses to keep score. What it shows instead
+is split in two.
+
+**The left side is a window.** A Brooklyn window that follows the time of day
+and the real weather — dawn, midday, dusk, night; clear, cloudy, rain, snow,
+sixteen scenes in all. When it rains, there is an umbrella by the window, which
+says *take an umbrella* without a word on screen. The clock, the date and the one
+weather line that would change what she does on the way out all live inside the
+window.
+
+**The tiger lives in that window too.** It is Today's character, and it changes
+with the sky outside: an umbrella in the rain, a scarf in the snow, wrapped in a
+blanket and asleep at night — the screen goes dark in the evening, and the tiger
+is saying *that's enough for today*. What it says sits in a speech bubble above
+it, because it is the tiger talking.
+
+**The right side is the family.** A row of faces, one colour each. Today's one
+step that is hers. Today's things, each with the face of whoever it is about —
+*Sign Stelle's conference form* carries Stelle. What is waiting, and what it
+remembers.
+
+The faces are a set by role and age — two mums, two dads, a baby, a teenager, a
+grandparent, a dog, a cat — not anyone's likeness. A child's picture follows the
+pronoun she recorded, never a guess from a name, and grows up with the birthday.
+
 ## Two layers, because a television is not a phone
 
 A television is read from three metres away, in passing, while carrying
-something. So the big screen is a **glance**: one sentence, one step, two tasks.
-Closer to the board in a hotel lobby than to an app.
+something. So the big screen is a **glance**: the window, one sentence, one step, the
+day's few things. Closer to the board in a hotel lobby than to an app.
 
 But glance-only would make it a thin checklist. So every item opens. Press right
 on the remote and the same item becomes a **detail**: how it breaks down, what
@@ -86,6 +116,11 @@ knows. It does not choose for her.
 - **Lookups** — Tavily, with the results fenced as untrusted material.
 - **Weather** — Open-Meteo, keyless, city-level only. A screen in a living room
   does not need to know which street she is on.
+- **Art** — the sixteen windows, the family faces and the tiger's moods are
+  generated with Tongyi Wanxiang from scripts kept in the repo. The tiger's moods
+  are edits of the original drawing rather than new ones, so it stays the same
+  tiger. Everything is served by the companion server, so changing a picture does
+  not mean rebuilding the APK.
 - **Sync** — the television polls every five seconds. No sockets, no accounts, no
   pairing. It finds the server on the local network by itself, and re-discovers
   it if the address changes.
@@ -121,9 +156,21 @@ lookup turn in six comes back weak. So nothing in the demo depends on a
 particular sentence: one step a day, her own things first, the key–value table,
 the five-second poll — those are decided in code. The prose is the garnish.
 
-**And the honest one:** in the final take, it *didn't* ask its clarifying
-question — it went straight to giving her a first move. The narration was
-rewritten to match. Never describe a capability the footage doesn't show.
+**The emulator hid things the real television showed.** The demo is recorded
+on a real Fire TV (Fire OS 8) — the rules ask for that, and it was the right
+call for its own sake. Played back from the living-room screen, the tiger's
+speech bubble had been squeezed by the umbrella until words broke in half
+(*confe / rence*); it moved above the tiger. The phone and the television are
+recorded separately, so every phone frame carries a browser timestamp and every
+remote press is logged, and the two are lined up by those clocks — the seconds
+between *she sends it* and *the TV changes on its own* are the real seconds.
+In the first cut the TV's clock ran backwards between two scenes; the edit now
+follows the order things actually happened.
+
+**And the honest one:** the agent doesn't do the same thing twice. In one take
+it asked its clarifying question; in another it went straight to a first move.
+The narration always follows the footage. Never describe a capability the
+footage doesn't show.
 
 ## What's next
 
