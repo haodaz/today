@@ -24,3 +24,7 @@ private/
 
 # 旁白音频是生成物，几 MB，重跑 tts.mjs 就有
 doc/video/tts/
+# 录像素材和中间文件很大，脚本在、重跑就有
+doc/video/takes/*/
+doc/video/v2/work/
+doc/video/v2/tts/

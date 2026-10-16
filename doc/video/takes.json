@@ -1,0 +1,315 @@
+{
+ "open": {
+  "seconds": 40,
+  "steps": [
+   [
+    "tvshell",
+    "input",
+    "keyevent",
+    "KEYCODE_HOME"
+   ],
+   [
+    "wait",
+    5000
+   ],
+   [
+    "tvshell",
+    "am",
+    "start",
+    "-n",
+    "com.today.tv/.MainActivity"
+   ],
+   [
+    "wait",
+    16000
+   ],
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    1500
+   ],
+   [
+    "tv",
+    "DPAD_UP"
+   ],
+   [
+    "wait",
+    4000
+   ]
+  ]
+ },
+ "phone-tv": {
+  "seconds": 120,
+  "steps": [
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    900
+   ],
+   [
+    "tv",
+    "DPAD_UP"
+   ],
+   [
+    "open",
+    "/"
+   ],
+   [
+    "wait",
+    5000
+   ],
+   [
+    "js",
+    "openIn()"
+   ],
+   [
+    "wait",
+    1500
+   ],
+   [
+    "type",
+    "#who",
+    "Elodie"
+   ],
+   [
+    "wait",
+    800
+   ],
+   [
+    "enter"
+   ],
+   [
+    "wait",
+    12000
+   ],
+   [
+    "type",
+    "#t",
+    "Coco barely slept and Stelle needs her conference form signed for Thursday"
+   ],
+   [
+    "wait",
+    1200
+   ],
+   [
+    "enter"
+   ],
+   [
+    "wait",
+    28000
+   ]
+  ]
+ },
+ "passport": {
+  "seconds": 90,
+  "steps": [
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    900
+   ],
+   [
+    "tv",
+    "DPAD_UP"
+   ],
+   [
+    "open",
+    "/app"
+   ],
+   [
+    "wait",
+    6000
+   ],
+   [
+    "type",
+    "#t",
+    "I keep putting off sorting out Coco's passport"
+   ],
+   [
+    "wait",
+    1200
+   ],
+   [
+    "enter"
+   ],
+   [
+    "wait",
+    32000
+   ]
+  ]
+ },
+ "saturday": {
+  "seconds": 120,
+  "steps": [
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    900
+   ],
+   [
+    "tv",
+    "DPAD_UP"
+   ],
+   [
+    "open",
+    "/app"
+   ],
+   [
+    "wait",
+    6000
+   ],
+   [
+    "type",
+    "#t",
+    "somewhere warm and indoors I could take Coco on Saturday, she's eight months"
+   ],
+   [
+    "wait",
+    1200
+   ],
+   [
+    "enter"
+   ],
+   [
+    "wait",
+    45000
+   ],
+   [
+    "scroll",
+    -700
+   ],
+   [
+    "wait",
+    6000
+   ],
+   [
+    "scroll",
+    260
+   ],
+   [
+    "wait",
+    6000
+   ]
+  ]
+ },
+ "passport2": {
+  "seconds": 90,
+  "steps": [
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    900
+   ],
+   [
+    "tv",
+    "DPAD_UP"
+   ],
+   [
+    "open",
+    "/app"
+   ],
+   [
+    "wait",
+    6000
+   ],
+   [
+    "type",
+    "#t",
+    "still to chase, I don't even know where it is"
+   ],
+   [
+    "wait",
+    1200
+   ],
+   [
+    "enter"
+   ],
+   [
+    "wait",
+    32000
+   ]
+  ]
+ },
+ "guide-tv": {
+  "seconds": 40,
+  "phone": false,
+  "steps": [
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    1800
+   ],
+   [
+    "tv",
+    "DPAD_DOWN"
+   ],
+   [
+    "wait",
+    2200
+   ],
+   [
+    "tv",
+    "DPAD_RIGHT"
+   ],
+   [
+    "wait",
+    12000
+   ],
+   [
+    "tv",
+    "BACK"
+   ],
+   [
+    "wait",
+    2500
+   ]
+  ]
+ },
+ "passport-phone": {
+  "tv": false,
+  "steps": [
+   [
+    "open",
+    "/app"
+   ],
+   [
+    "wait",
+    6000
+   ],
+   [
+    "js",
+    "(()=>{const e=[...document.querySelectorAll('*')].reverse().find(x=>x.onclick && /passport/i.test(x.textContent) && x.textContent.length<60); e && e.scrollIntoView({block:'center'}); return !!e})()"
+   ],
+   [
+    "wait",
+    2500
+   ],
+   [
+    "js",
+    "(()=>{const e=[...document.querySelectorAll('*')].reverse().find(x=>x.onclick && /passport/i.test(x.textContent) && x.textContent.length<60); e && e.click(); return !!e})()"
+   ],
+   [
+    "wait",
+    9000
+   ]
+  ]
+ }
+}

@@ -169,14 +169,16 @@
   #scrim{position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(180deg,var(--v0) 0%,var(--v1) 33%,var(--v2) 42%,rgba(0,0,0,0) 52%,rgba(0,0,0,0) 64%,var(--v2) 100%)}
   .sceneTop{position:absolute;left:44px;top:30px;right:24px}
-  .sceneBottom{position:absolute;left:28px;right:22px;bottom:0;display:flex;align-items:flex-end;gap:8px}
+  /* 气泡在头顶上、尾巴朝下指着它——放旁边的话，撑伞那只一宽，气泡就被挤到单词断开 */
+  .sceneBottom{position:absolute;left:28px;right:22px;bottom:0;display:flex;flex-direction:column;align-items:flex-start}
   #big{height:196px;flex:none;filter:drop-shadow(0 6px 10px rgba(40,30,60,.22))}
   #big.full{height:178px;margin-bottom:14px}
   #big.umbrella{height:226px}
-  .bubble{position:relative;flex:1;margin-bottom:110px;padding:9px 13px;border-radius:16px 16px 16px 4px;
+  .bubble{position:relative;max-width:300px;margin:0 0 2px 76px;padding:9px 13px;border-radius:16px 16px 16px 4px;
     background:var(--surface);border:1px solid var(--border);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 6px 18px var(--shadow)}
-  .bubble .say{font-size:16px;line-height:22px;font-weight:400;margin:0}
+  .bubble .say{font-size:16px;line-height:22px;font-weight:400;margin:0;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
   #family{position:absolute;left:392px;right:0;top:0;bottom:0;padding:20px 44px 24px 34px;
     display:flex;flex-direction:column;max-width:none}
@@ -221,8 +223,8 @@
       <div id="wx"></div>
     </div>
     <div class="sceneBottom">
-      <img id="big" alt="">
       <div class="bubble"><p class="say" id="say"></p></div>
+      <img id="big" alt="">
     </div>
   </div>
   <img class="tiger" id="tiger" src="/today-tiger.png" alt="" hidden>
@@ -311,6 +313,9 @@ const PARTS = ['dawn','day','dusk','night'], SKIES = ['clear','cloud','rain','sn
 const forcePart = PARTS.includes(Q.get('part')) ? Q.get('part') : null;
 const forceSky  = SKIES.includes(Q.get('sky'))  ? Q.get('sky')  : null;
 const part = h => forcePart || (h>=5&&h<9 ? 'dawn' : h>=9&&h<16 ? 'day' : h>=16&&h<20 ? 'dusk' : 'night');
+/* ?time=21:40：看这块屏在一天里别的时刻是什么样子（时钟和窗都跟着走）。只在网页版预览用。 */
+const forceTime = /^\d{1,2}:\d{2}$/.test(Q.get('time')||'') ? Q.get('time').split(':').map(Number) : null;
+const nowish = () => { const d = new Date(); if (forceTime) d.setHours(forceTime[0], forceTime[1]); return d; };
 const two = n => String(n).padStart(2,'0');
 
 /* 窗景挑哪一张：时辰 × 天气。和 src/theme.ts 的 sceneOf 一模一样。 */
@@ -318,7 +323,7 @@ const skyOf = k => k==='clear' ? 'clear' : k==='snow' ? 'snow'
   : (k==='rain'||k==='drizzle'||k==='storm') ? 'rain' : 'cloud';
 let artShown = '', artBad = new Set();
 function art(){
-  const name = `${part(new Date().getHours())}-${forceSky || skyOf(turn && turn.weather && turn.weather.kind)}`;
+  const name = `${part(nowish().getHours())}-${forceSky || skyOf(turn && turn.weather && turn.weather.kind)}`;
   if (name === artShown || artBad.has(name)) return;
   // 先在后台加载完再换，换的时候淡入——不让一块屏在客厅里闪一下
   const img = new Image();
@@ -336,7 +341,7 @@ function art(){
 const ASPECT = {default:.833, umbrella:1, scarf:.856, sleep:.8};
 const FULL = {sleep:true};
 function tiger(){
-  const p = part(new Date().getHours());
+  const p = part(nowish().getHours());
   const sky = forceSky || skyOf(turn && turn.weather && turn.weather.kind);
   const pose = p==='night' ? 'sleep' : sky==='rain' ? 'umbrella' : sky==='snow' ? 'scarf' : null;
   const t = $('tiger');
@@ -356,7 +361,7 @@ function tiger(){
 }
 
 function clock(){
-  const d = new Date();
+  const d = nowish();
   $('clock').textContent = `${d.getHours()}:${two(d.getMinutes())}`;
   const wd = lang==='zh'
     ? ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]
