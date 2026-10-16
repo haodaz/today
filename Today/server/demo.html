@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Today — try it</title>
+<!--
+  给评委的那一页：左边是她的手机，右边是客厅那块电视，同一个家。
+  在左边说一句，右边几秒后自己变——视频里那个画面，但是活的。
+  两个 iframe 都带着同一个 h，服务端给这一页的访客单独复制了一个演示家庭，
+  谁打什么都只在自己这一家里，24 小时后清掉。
+-->
+<style>
+  :root{--bg:#E9E6F2;--ink:#1E1B2E;--soft:#4A4560;--faint:#6E6984;--accent:#6B5CE7}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);display:flex;flex-direction:column;color:var(--ink);
+    font:400 15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:16px 24px 6px}
+  h1{font-size:22px;font-weight:600;margin:0}
+  header p{margin:0;color:var(--soft)}
+  .stage{flex:1;min-height:0;display:flex;gap:22px;align-items:flex-start;justify-content:center;padding:10px 24px 12px}
+  .phone{flex:none;width:min(390px,30vw);height:min(844px,100%);border-radius:30px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(40,30,80,.18);background:#fff;border:8px solid #1d1b26}
+  .tv{flex:1;max-width:1280px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(40,30,80,.18);border:10px solid #15141c;background:#000}
+  iframe{width:100%;height:100%;border:0;display:block}
+  .hint{color:var(--faint);font-size:13px;padding:0 24px 18px;text-align:center}
+  @media (max-width:820px){.stage{flex-direction:column;align-items:center;height:auto}
+    .phone{width:100%;max-width:390px;height:760px}.tv{width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Today</h1>
+  <p>Left is her phone. Right is the television in her living room. Say something on the left; the right catches up on its own.</p>
+</header>
+<div class="stage">
+  <div class="phone"><iframe src="/app?h=__H__" title="Phone"></iframe></div>
+  <div class="tv"><iframe src="/tv?h=__H__" title="Television"></iframe></div>
+</div>
+<div class="hint">
+  Click the TV once, then: arrow keys move, Enter or → opens an item, Esc comes back.
+  This is your own copy of a fictional Brooklyn family — nothing you type is seen by anyone else, and it resets after a day.
+  · <a href="https://github.com/haodaz/today">Code</a> · <a href="https://github.com/haodaz/today/releases/latest">Fire TV APK</a>
+</div>
+</body>
+</html>

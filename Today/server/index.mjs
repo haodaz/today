@@ -13,7 +13,10 @@
  *   node server/index.mjs
  */
 import {createServer} from 'node:http';
-import {readFileSync, writeFileSync, existsSync, mkdirSync, statSync} from 'node:fs';
+import {readFileSync, writeFileSync, existsSync, mkdirSync, statSync, readdirSync, rmSync} from 'node:fs';
+import {AsyncLocalStorage} from 'node:async_hooks';
+import {spawnSync} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {buildMessages, buildGreeting} from '../src/agent/prompt.js';
@@ -38,15 +41,22 @@ const DATA = process.env.TODAY_DATA
       ? process.env.TODAY_DATA
       : join(ROOT, process.env.TODAY_DATA))
   : join(ROOT, '.data');
-const DAYS = join(DATA, 'days');
-const MEM_FILE = join(DATA, 'memory.json');
-const PROJ_FILE = join(DATA, 'projects.json');
-const STEP_FILE = join(DATA, 'step.json');
-const PREFS_FILE = join(DATA, 'prefs.json');
-const PEOPLE_FILE = join(DATA, 'people.json');
+/**
+ * 线上 demo 里每个访客一个家（见下面 DEMO 那段）。
+ * 所有读写都从这里取目录：在一次请求里，它指向这个访客的那一家；
+ * 不在 demo 模式时，就是上面那个 DATA。
+ */
+const HOUSE = new AsyncLocalStorage();
+const here = () => HOUSE.getStore()?.dir ?? DATA;
+const DAYS = () => join(here(), 'days');
+const MEM_FILE = () => join(here(), 'memory.json');
+const PROJ_FILE = () => join(here(), 'projects.json');
+const STEP_FILE = () => join(here(), 'step.json');
+const PREFS_FILE = () => join(here(), 'prefs.json');
+const PEOPLE_FILE = () => join(here(), 'people.json');
 const PORT = Number(process.env.PORT || 8910);
 
-for (const d of [DATA, DAYS]) if (!existsSync(d)) mkdirSync(d, {recursive: true});
+for (const d of [DATA, join(DATA, 'days')]) if (!existsSync(d)) mkdirSync(d, {recursive: true});
 
 const envFile = join(ROOT, '.env.local');
 if (existsSync(envFile)) {
@@ -79,7 +89,7 @@ const P = PROVIDERS[CHAIN[0]];
 const MODEL = process.env.MODEL || P.model;
 
 const dayKey = (d = new Date()) => d.toLocaleDateString('sv-SE'); // YYYY-MM-DD
-const dayFile = k => join(DAYS, `${k}.json`);
+const dayFile = k => join(DAYS(), `${k}.json`);
 
 const readJSON = (f, fallback) => {
   try { return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : fallback; }
@@ -98,19 +108,19 @@ const writeJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2));
  * 存在服务端而不是各屏自己记：她在手机上按一下，电视跟着变。
  * 录 demo 要全程英文的时候，这是唯一不用重装 APK 的开关。
  */
-const loadPrefs = () => readJSON(PREFS_FILE, {lang: null, place: null});
-const savePrefs = p => writeJSON(PREFS_FILE, p);
+const loadPrefs = () => readJSON(PREFS_FILE(), {lang: null, place: null});
+const savePrefs = p => writeJSON(PREFS_FILE(), p);
 /** 她挑过就听她的，没挑过才看请求里带的那个。 */
 const langOf = asked => loadPrefs().lang ?? (asked === 'zh' ? 'zh' : 'en');
 
-const loadPeople = () => readJSON(PEOPLE_FILE, Ppl.EMPTY);
-const savePeople = v => writeJSON(PEOPLE_FILE, v);
+const loadPeople = () => readJSON(PEOPLE_FILE(), Ppl.EMPTY);
+const savePeople = v => writeJSON(PEOPLE_FILE(), v);
 
-const loadProjects = () => readJSON(PROJ_FILE, Proj.EMPTY);
-const saveProjects = p => writeJSON(PROJ_FILE, p);
+const loadProjects = () => readJSON(PROJ_FILE(), Proj.EMPTY);
+const saveProjects = p => writeJSON(PROJ_FILE(), p);
 
 function loadMemory() {
-  const m = readJSON(MEM_FILE, null);
+  const m = readJSON(MEM_FILE(), null);
   if (!m) return EMPTY_MEM;
   if (m.facts) return m;
   const old = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -125,7 +135,7 @@ function loadMemory() {
     if (list.length) facts[dim] = list.map(text => ({text, at: old}));
   }
   const out = {facts, updatedAt: m.updatedAt || old};
-  writeJSON(MEM_FILE, out);
+  writeJSON(MEM_FILE(), out);
   return out;
 }
 
@@ -492,7 +502,7 @@ async function weather() {
  */
 async function todayStep(lang) {
   const k = dayKey();
-  const cached = readJSON(STEP_FILE, null);
+  const cached = readJSON(STEP_FILE(), null);
   const sameDay = cached?.date === k;
   if (sameDay && cached.lang === lang) return cached.step ?? null;
 
@@ -500,7 +510,7 @@ async function todayStep(lang) {
   // 所以当天挑出来的原文留着，换语言只是换一层皮。
   const raw = sameDay ? (cached.raw ?? null) : advanceOne();
   const step = raw && lang === 'en' && hasCJK(raw) ? await englishStep(raw) : raw;
-  writeJSON(STEP_FILE, {date: k, lang, step, raw});
+  writeJSON(STEP_FILE(), {date: k, lang, step, raw});
   return step;
 }
 
@@ -615,7 +625,7 @@ const readRaw = req => new Promise(ok => {
   const cs = []; req.on('data', c => cs.push(c)); req.on('end', () => ok(Buffer.concat(cs)));
 });
 
-createServer(async (req, res) => {
+async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
 
   if (req.method === 'OPTIONS') {
@@ -638,7 +648,9 @@ createServer(async (req, res) => {
     const f = join(ROOT, '..', 'doc', 'site', 'index.html');
     if (existsSync(f)) {
       res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
-      return res.end(readFileSync(f));
+      // 线上 demo：进去之后是手机和电视并排那一页，不是只有手机
+      const page = readFileSync(f, 'utf8');
+      return res.end(DEMO ? page.replace("const APP = '/app';", "const APP = '/demo';") : page);
     }
   }
   if (url.pathname.startsWith('/shots/')) {
@@ -665,6 +677,12 @@ createServer(async (req, res) => {
       return res.end(readFileSync(f));
     }
     return json(res, 404, {error: 'no such scene'});
+  }
+
+  // 给评委的一页：手机和电视并排，同一个家
+  if (url.pathname === '/demo') {
+    res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
+    return res.end(readFileSync(join(HERE, 'demo.html'), 'utf8').replaceAll('__H__', HOUSE.getStore()?.id ?? ''));
   }
 
   /**
@@ -708,6 +726,7 @@ createServer(async (req, res) => {
    * 给麦克风权限。所以这个端点必须配合 HTTPS 隧道才有意义。
    */
   if (url.pathname === '/transcribe' && req.method === 'POST') {
+    if (HOUSE.getStore()?.over) return json(res, 429, {error: 'demo limit'});
     try {
       const audio = await readRaw(req);
       if (!audio.length) return json(res, 400, {error: '没收到音频'});
@@ -744,10 +763,17 @@ createServer(async (req, res) => {
       // 她说的话也进对话流——这是一条对话，不是一次查询
       appendMessage({who: 'her', text: braindump.trim(), mode: M});
 
+      // 线上 demo 今天的额度用完了：由 Today 自己说一句，别给一个报错的屏幕
+      if (HOUSE.getStore()?.over) {
+        return json(res, 200, appendMessage({who: 'today', text: L === 'zh'
+          ? '这个演示今天能想的就到这儿了。上面的都还在，电视那边也能按着看。明天再来跟我说话吧。'
+          : "That's as much thinking as this demo can do today. Everything above is still here, and the big screen still works — press around. Talk to me again tomorrow."}));
+      }
+
       const before = currentPlan();
       const {turn, remember, projects, people, guide} = await ask(braindump, L, M);
       const mem = mergeMem(loadMemory(), remember);
-      writeJSON(MEM_FILE, mem);
+      writeJSON(MEM_FILE(), mem);
       if (people.length) savePeople(Ppl.apply(loadPeople(), people));
       if (projects.length || guide) {
         const prev = loadProjects();
@@ -854,6 +880,7 @@ createServer(async (req, res) => {
 
   // Today 先开口。手机页一打开就调这个。
   if (url.pathname === '/greet') {
+    if (HOUSE.getStore()?.over) return json(res, 200, {say: ''});   // 页面有自己的兜底开场
     try {
       const lang = langOf(url.searchParams.get('lang'));
       return json(res, 200, await greet(lang));
@@ -1024,6 +1051,84 @@ createServer(async (req, res) => {
   }
 
   json(res, 404, {error: 'not found'});
+}
+
+/**
+ * 线上 demo。
+ *
+ * 评委在浏览器里点开就能用——但一个公开链接，所有人共用一个家是不行的：
+ * 一个人打的字下一个人看得见，有人乱打，所有人都看见。
+ * 所以 DEMO=1 时，每个访客第一次来就从演示种子复制一个家给他，id 记在 cookie 里；
+ * 同一个浏览器里的手机页和 /tv 自然是同一家。24 小时没人来就清掉。
+ *
+ * 另一件事是钱。模型和搜索按次计费，一个公开链接不能把额度刷光：
+ * 每家、每个 IP、全站每天都有上限，到了就由 Today 自己说一句「今天就到这儿」，
+ * 页面别的地方照常能看、能按。
+ */
+const DEMO = process.env.DEMO === '1';
+const HOUSES = process.env.DEMO_DIR || '/tmp/today-houses';
+const SEED = join(ROOT, 'scripts', 'demo-seed.mjs');
+const LIMIT = {
+  house: Number(process.env.DEMO_LIMIT_HOUSE) || 30,
+  ip: Number(process.env.DEMO_LIMIT_IP) || 80,
+  all: Number(process.env.DEMO_LIMIT_ALL) || 800,
+};
+const spent = {day: '', house: new Map(), ip: new Map(), all: 0};
+const COSTLY = new Set(['/braindump', '/greet', '/transcribe']);
+
+function tidyHouses() {
+  if (!existsSync(HOUSES)) return;
+  const all = readdirSync(HOUSES).map(id => {
+    const seen = join(HOUSES, id, '.seen');
+    return {id, at: existsSync(seen) ? statSync(seen).mtimeMs : 0};
+  }).sort((a, b) => b.at - a.at);
+  all.forEach((h, i) => {
+    if (i >= 300 || Date.now() - h.at > 24 * 3600e3) rmSync(join(HOUSES, h.id), {recursive: true, force: true});
+  });
+}
+
+function seedHouse(dir) {
+  spawnSync(process.execPath, [SEED], {env: {...process.env, TODAY_DATA: dir}, stdio: 'ignore'});
+  // 种子里没有地点；演示的家在布鲁克林，天气和搜索都按它来
+  const f = join(dir, 'prefs.json');
+  const prefs = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
+  writeFileSync(f, JSON.stringify({...prefs, lang: 'en',
+    place: {name: 'Brooklyn, US', lat: 40.6501, lon: -73.9496}}, null, 2));
+}
+
+function houseOf(req, url) {
+  const asked = url.searchParams.get('h');
+  const had = /(?:^|;\s*)today_h=([a-f0-9]{10})(?:;|$)/.exec(req.headers.cookie || '')?.[1];
+  const id = /^[a-f0-9]{10}$/.test(asked || '') ? asked : had || randomBytes(5).toString('hex');
+  const dir = join(HOUSES, id);
+  if (!existsSync(dir)) { tidyHouses(); mkdirSync(dir, {recursive: true}); seedHouse(dir); }
+  writeFileSync(join(dir, '.seen'), '');
+  return {id, dir, fresh: id !== had};
+}
+
+/** 这一次调模型还在不在额度里。在就记一笔。 */
+function afford(req, id) {
+  const today = dayKey();
+  if (spent.day !== today) Object.assign(spent, {day: today, house: new Map(), ip: new Map(), all: 0});
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const h = spent.house.get(id) ?? 0, i = spent.ip.get(ip) ?? 0;
+  if (h >= LIMIT.house || i >= LIMIT.ip || spent.all >= LIMIT.all) return false;
+  spent.house.set(id, h + 1); spent.ip.set(ip, i + 1); spent.all++;
+  return true;
+}
+
+createServer(async (req, res) => {
+  if (!DEMO) return handle(req, res);
+  const url = new URL(req.url, 'http://x');
+  // 静态的东西不用分家
+  if (/^\/(art|shots)\//.test(url.pathname) || /^\/today-[a-z0-9-]+\.png$/.test(url.pathname)) return handle(req, res);
+  const house = houseOf(req, url);
+  if (house.fresh) {
+    const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `today_h=${house.id}; Path=/; Max-Age=86400; SameSite=Lax${secure}`);
+  }
+  const over = COSTLY.has(url.pathname) && req.method !== 'OPTIONS' && !afford(req, house.id);
+  return HOUSE.run({dir: house.dir, id: house.id, over}, () => handle(req, res));
 }).listen(PORT, '0.0.0.0', () => {
   console.log(`\nToday 本地服务  ·  ${CHAIN[0]} / ${MODEL}` +
     (CHAIN.length > 1 ? `  （兜底：${CHAIN.slice(1).join(' → ')}）` : ''));

@@ -1,0 +1,9 @@
+**/node_modules
+Today/android
+Today/.data*
+Today/.art-probe
+Today/.env*
+doc/video
+private
+*.apk
+.git
