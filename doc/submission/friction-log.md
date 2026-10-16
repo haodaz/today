@@ -120,3 +120,44 @@ glance.
 **Suggestion.** A "read it from three metres" checklist, or an emulator mode that
 previews at a realistic viewing distance. Either would have changed our first
 draft, and the cost of finding out late is a redesign rather than a tweak.
+
+---
+
+## 6. `screenrecord` on a real Fire TV: three surprises
+
+**Task.** Record the demo video from the television's own output on a real Fire TV
+(Fire OS 8), so the room is never in frame — the rules require real hardware or
+the Fire TV/Vega simulator, and our generic Android TV emulator boots to a Google
+TV launcher, so it would not qualify.
+
+**Steps.** `adb shell screenrecord --bit-rate 16000000 /sdcard/take.mp4`, drive the
+app with `adb shell input keyevent`, pull the file.
+
+**Expected.** A constant-frame-rate video of whatever is on screen.
+
+**Actual.**
+1. **No frames while the screen is still.** A 6-second recording of a static
+   screen was 82 KB with a single frame. Fine for file size, but it means the
+   timestamp of the first frame after a pause is the only clock you have.
+2. **If the recording is ended by the adb connection closing, the file has no
+   duration** (`Duration: N/A`) and most tools can't seek in it. Sending SIGINT
+   on the device (`pkill -INT screenrecord`) finalises it properly.
+3. **Each `adb shell input keyevent` takes over a second**, and the key actually
+   lands near the end of that second — so logging the time you *sent* the key is
+   wrong by about a second when you try to line the TV recording up with anything
+   else.
+
+**Severity.** Medium. None of it is documented next to `screenrecord`, and the
+demo video depends on all three.
+
+**Workaround.** Start each take with one D-pad press: the screen is still before
+it and changes after it, so the first frame after the gap marks that press, and
+the press is timed by when the adb command *returned*. That aligns the TV
+recording with a phone recording (Chrome DevTools screencast, which timestamps
+every frame) to a fraction of a second — so the seconds between *she sends it*
+and *the TV changes on its own* in our video are the real seconds, with no cut.
+
+**Suggestion.** A recording option that emits constant frame rate, and a one-line
+note in the Fire TV docs that `screenrecord` works over `adb connect` on Fire OS 8
+— it's the cleanest way to make a Fire TV demo video, and most teams will reach for
+a camera pointed at the TV instead.
