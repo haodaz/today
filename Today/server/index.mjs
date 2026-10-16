@@ -1069,9 +1069,9 @@ const DEMO = process.env.DEMO === '1';
 const HOUSES = process.env.DEMO_DIR || '/tmp/today-houses';
 const SEED = join(ROOT, 'scripts', 'demo-seed.mjs');
 const LIMIT = {
-  house: Number(process.env.DEMO_LIMIT_HOUSE) || 30,
-  ip: Number(process.env.DEMO_LIMIT_IP) || 80,
-  all: Number(process.env.DEMO_LIMIT_ALL) || 800,
+  house: Number(process.env.DEMO_LIMIT_HOUSE) || 20,
+  ip: Number(process.env.DEMO_LIMIT_IP) || 40,
+  all: Number(process.env.DEMO_LIMIT_ALL) || 300,
 };
 const spent = {day: '', house: new Map(), ip: new Map(), all: 0};
 const COSTLY = new Set(['/braindump', '/greet', '/transcribe']);
