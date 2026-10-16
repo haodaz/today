@@ -378,20 +378,21 @@ export default function App() {
               </View>
             ) : null}
           </View>
+          {/* 它和它说的话。气泡在头顶上、尾巴朝下指着它——
+              放在旁边的话，撑伞那只一宽，气泡就被挤到单词从中间断开。 */}
           <View style={s.sceneBottom}>
+            <View style={[s.bubble, {backgroundColor: p.surface, borderColor: p.border, shadowColor: p.shadow,
+              marginLeft: Math.round(bigW * 0.42)}]}>
+              <Text style={[s.say, {color: p.text}]} numberOfLines={3}>
+                {glance(turn.say) || x.empty}
+              </Text>
+            </View>
             <Image
               source={usePose ? {uri: poseUrl} : TIGER}
               style={{width: bigW, height: bigH, marginBottom: full ? 14 : 0}}
               resizeMode="contain"
               onError={() => poseUrl && setPoseBad(poseUrl)}
             />
-            {/* 它说的话。电视不是用来读长文的——只取开头一两句，完整的在手机上。
-                五行封顶：模型输出的长度不可控，界面不能指望它守规矩。 */}
-            <View style={[s.bubble, {backgroundColor: p.surface, borderColor: p.border, shadowColor: p.shadow}]}>
-              <Text style={[s.say, {color: p.text}]} numberOfLines={5}>
-                {glance(turn.say) || x.empty}
-              </Text>
-            </View>
           </View>
         </View>
 
@@ -566,10 +567,9 @@ const s = StyleSheet.create({
   zones: {flex: 1, flexDirection: 'row'},
   scene: {overflow: 'hidden'},
   sceneTop: {position: 'absolute', left: safe.h, top: safe.v, right: 24},
-  sceneBottom: {position: 'absolute', left: 28, right: 22, bottom: 0,
-    flexDirection: 'row', alignItems: 'flex-end'},
+  sceneBottom: {position: 'absolute', left: 28, right: 22, bottom: 0, alignItems: 'flex-start'},
   // 气泡：它说的话。尾巴朝左下，指着老虎
-  bubble: {flex: 1, marginLeft: space.sm, marginBottom: 110, paddingVertical: 9, paddingHorizontal: 13,
+  bubble: {maxWidth: 300, marginBottom: 2, paddingVertical: 9, paddingHorizontal: 13,
     borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1,
     shadowOpacity: 1, shadowRadius: 18, shadowOffset: {width: 0, height: 6}, elevation: 4},
   family: {flex: 1, paddingTop: 20, paddingBottom: 24, paddingLeft: 34, paddingRight: safe.h},
