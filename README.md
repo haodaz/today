@@ -85,6 +85,20 @@ Today is the one that raises it. Not to chase her. To say it hasn't forgotten.
 And no progress bar. No *insurance 2/4*. The moment she can see a completion
 rate, this has become one more board she has to maintain.
 
+## Try it in your browser
+
+**https://today-production-a39e.up.railway.app/demo**
+
+Her phone on the left, the television in her living room on the right — the same
+household. Say something on the left; a few seconds later the right catches up on
+its own. Click the TV once, then use the arrow keys, Enter (or →) to open an item,
+Esc to come back.
+
+Every visitor gets their own copy of a fictional Brooklyn family, so nothing you
+type is seen by anyone else, and it clears after a day. Thinking is capped per
+day to keep the demo affordable; when the cap is reached, Today says so and the
+rest of the page keeps working.
+
 ## Have a Fire TV? Side-load it
 
 A signed release APK is attached to the [latest
